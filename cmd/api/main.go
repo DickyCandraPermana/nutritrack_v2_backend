@@ -1,7 +1,17 @@
 package main
 
-import "fmt"
+import "log"
 
 func main() {
-	fmt.Println("hello, world!")
+	cfg := config{
+		addr: ":8080",
+	}
+
+	app := &application{
+		config: cfg,
+	}
+
+	mux := app.mount()
+
+	log.Fatal(app.run(mux))
 }
