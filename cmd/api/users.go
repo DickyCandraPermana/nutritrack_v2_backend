@@ -9,6 +9,7 @@ import (
 	"github.com/MyFirstGo/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (app *application) getUsers(w http.ResponseWriter, r *http.Request) {
@@ -79,15 +80,22 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Gagal memproses password", http.StatusInternalServerError)
+		return
+	}
+
 	user := &store.User{
 		Username: payload.Username,
 		Email:    payload.Email,
-		Password: payload.Password,
+		Password: string(hashedPassword),
 	}
 
 	ctx := r.Context()
 	if err := app.store.Users.Create(ctx, user); err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
 
 	if err := writeJSON(w, http.StatusCreated, user); err != nil {

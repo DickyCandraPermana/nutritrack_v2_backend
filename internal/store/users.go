@@ -84,6 +84,34 @@ func (s *UserStore) GetByID(ctx context.Context, userID int64) (*User, error) {
 	return user, nil
 }
 
+func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error) {
+	query := `
+		SELECT id, username, password, email, created_at, updated_at
+		FROM users
+		WHERE email = $1
+			AND deleted_at IS NULL
+	`
+
+	user := &User{}
+	err := s.db.QueryRowContext(ctx, query, email).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Password,
+		&user.Email,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	return user, nil
+}
+
 func (s *UserStore) Create(ctx context.Context, user *User) error {
 	query := `
 	INSERT INTO users (username, password, email)

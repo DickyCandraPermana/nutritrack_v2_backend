@@ -12,6 +12,7 @@ type Storage struct {
 	Users interface {
 		GetAll(context.Context) ([]User, error)
 		GetByID(context.Context, int64) (*User, error)
+		GetByEmail(context.Context, string) (*User, error)
 		Create(context.Context, *User) error
 		Update(context.Context, *User) error
 		Delete(context.Context, int64) error
