@@ -6,6 +6,7 @@ import (
 	"github.com/MyFirstGo/internal/db"
 	"github.com/MyFirstGo/internal/env"
 	"github.com/MyFirstGo/internal/store"
+	"github.com/go-playground/validator/v10"
 )
 
 func main() {
@@ -36,8 +37,9 @@ func main() {
 	store := store.NewStorage(db)
 
 	app := &application{
-		config: cfg,
-		store:  store,
+		config:    cfg,
+		store:     store,
+		validator: validator.New(),
 	}
 
 	mux := app.mount()
