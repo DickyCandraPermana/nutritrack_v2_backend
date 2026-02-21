@@ -17,11 +17,17 @@ type Storage struct {
 		Update(context.Context, *User) error
 		Delete(context.Context, int64) error
 	}
+	Foods interface {
+		GetPaginated(context.Context, int, int) ([]Food, error)
+		GetByID(context.Context, int64) (*Food, error)
+		Create(context.Context, *Food) error
+	}
 }
 
 func NewStorage(db *sql.DB) Storage {
 	return Storage{
 		Posts: &PostStore{db},
 		Users: &UserStore{db},
+		Foods: &FoodStore{db},
 	}
 }

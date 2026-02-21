@@ -69,7 +69,6 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 	if err := app.validator.Struct(payload); err != nil {
 		var errDetails []string
 		for _, err := range err.(validator.ValidationErrors) {
-			// Contoh output: "Username is required" atau "Password must be at least 8"
 			errDetails = append(errDetails, fmt.Sprintf("%s is %s", err.Field(), err.Tag()))
 		}
 
