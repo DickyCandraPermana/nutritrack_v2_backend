@@ -15,7 +15,7 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password" validate:"required,min=8"`
 	}
 
-	if err := readJSON(w, r, &payload); err != nil {
+	if err := app.readJSON(w, r, &payload); err != nil {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
@@ -26,7 +26,7 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 			errDetails = append(errDetails, fmt.Sprintf("%s is %s", err.Field(), err.Tag()))
 		}
 
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
+		app.writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
 			"error":   "Validation failed",
 			"details": errDetails,
 		})
@@ -37,7 +37,7 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	user, err := app.store.Users.GetByEmail(ctx, payload.Email)
 	if err != nil {
-		writeJSON(w, http.StatusUnauthorized, "Email atau password salah")
+		app.writeJSON(w, http.StatusUnauthorized, "Email atau password salah")
 		return
 	}
 
@@ -46,7 +46,7 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(payload.Password))
 	if err != nil {
 
-		writeJSON(w, http.StatusUnauthorized, fmt.Sprintf("%s is %s", user.Password, []byte(payload.Password)))
+		app.writeJSON(w, http.StatusUnauthorized, fmt.Sprintf("%s is %s", user.Password, []byte(payload.Password)))
 		return
 	}
 
@@ -56,5 +56,5 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"token": token})
+	app.writeJSON(w, http.StatusOK, map[string]string{"token": token})
 }

@@ -48,6 +48,7 @@ func (s *FoodStore) GetPaginated(ctx context.Context, limit, offset int) ([]Food
 		created_at,
 		updated_at
 	FROM foods
+	WHERE deleted_at IS NULL
 	ORDER BY id
 	LIMIT $1 OFFSET $2
 	`
@@ -86,7 +87,7 @@ func (s *FoodStore) GetByID(ctx context.Context, id int64) (*Food, error) {
 	query := `
 	SELECT id, name, description, nutrients, created_at, updated_at
 	FROM foods
-	WHERE id = $1
+	WHERE id = $1 AND deleted_at IS NULL
 	`
 
 	food := &Food{}
@@ -129,6 +130,59 @@ func (s *FoodStore) Create(ctx context.Context, food *Food) error {
 
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (s *FoodStore) Update(ctx context.Context, food *Food) error {
+	query := `
+	UPDATE foods
+	SET
+		name = $2,
+		description = $3,
+		nutrients = $4,
+		updated_at = NOW()
+	WHERE id = $1 AND deleted_at IS NULL
+	`
+
+	res, err := s.db.ExecContext(ctx, query, food.ID, food.Name, food.Description, food.Nutrients)
+	if err != nil {
+		return err
+	}
+
+	row, err := res.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if row == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+func (s *FoodStore) Delete(ctx context.Context, id int64) error {
+	query := `
+	UPDATE foods
+	SET deleted_at = NOW()
+	WHERE id = $1
+	`
+
+	res, err := s.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+
+	row, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if row == 0 {
+		return ErrNotFound
 	}
 
 	return nil
