@@ -56,6 +56,14 @@ func (app *application) mount() http.Handler {
 				r.Delete("/", app.deleteUserHandler)
 			})
 		})
+
+		r.Route("/foods", func(r chi.Router) {
+			r.Get("/", app.getFoodsHandler)
+			r.Post("/", app.createFoodsHandler)
+			r.Route("/{foodID}", func(r chi.Router) {
+				r.Get("/", app.getFoodByIdHandler)
+			})
+		})
 	})
 
 	return r
