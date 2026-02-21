@@ -8,11 +8,13 @@ import (
 	"github.com/MyFirstGo/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-playground/validator/v10"
 )
 
 type application struct {
-	config config
-	store  store.Storage
+	config    config
+	store     store.Storage
+	validator *validator.Validate
 }
 
 type dbConfig struct {
@@ -39,6 +41,21 @@ func (app *application) mount() http.Handler {
 
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/health", app.healthCheckHandler)
+
+		r.Route("/auth", func(r chi.Router) {
+			r.Post("/login", app.loginHandler)
+			r.Post("/register", app.createUserHandler)
+		})
+
+		r.Route("/users", func(r chi.Router) {
+			r.Get("/", app.getUsers)
+			r.Post("/", app.createUserHandler)
+			r.Route("/{userID}", func(r chi.Router) {
+				r.Get("/", app.getUserById)
+				r.Patch("/", app.updateUserHandler)
+				r.Delete("/", app.deleteUserHandler)
+			})
+		})
 	})
 
 	return r
