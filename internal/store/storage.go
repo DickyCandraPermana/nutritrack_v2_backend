@@ -21,6 +21,8 @@ type Storage struct {
 		GetPaginated(context.Context, int, int) ([]Food, error)
 		GetByID(context.Context, int64) (*Food, error)
 		Create(context.Context, *Food) error
+		Update(context.Context, *Food) error
+		Delete(context.Context, int64) error
 	}
 }
 

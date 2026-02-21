@@ -25,14 +25,14 @@ func (app *application) getUsers(w http.ResponseWriter, r *http.Request) {
 		users = []store.User{}
 	}
 
-	writeJSON(w, http.StatusOK, users)
+	app.writeJSON(w, http.StatusOK, users)
 }
 
 func (app *application) getUserById(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "userID")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, "Invalid User ID format")
+		app.writeJSON(w, http.StatusBadRequest, "Invalid User ID format")
 		return
 	}
 
@@ -41,14 +41,14 @@ func (app *application) getUserById(w http.ResponseWriter, r *http.Request) {
 	user, err := app.store.Users.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			writeJSON(w, http.StatusNotFound, "User not found")
+			app.writeJSON(w, http.StatusNotFound, "User not found")
 			return
 		}
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	if err := writeJSON(w, http.StatusOK, user); err != nil {
+	if err := app.writeJSON(w, http.StatusOK, user); err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -61,7 +61,7 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 		Password string `json:"password" validate:"required,min=8"`
 	}
 
-	if err := readJSON(w, r, &payload); err != nil {
+	if err := app.readJSON(w, r, &payload); err != nil {
 		http.Error(w, "Bad request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -72,7 +72,7 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 			errDetails = append(errDetails, fmt.Sprintf("%s is %s", err.Field(), err.Tag()))
 		}
 
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
+		app.writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
 			"error":   "Validation failed",
 			"details": errDetails,
 		})
@@ -97,7 +97,7 @@ func (app *application) createUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := writeJSON(w, http.StatusCreated, user); err != nil {
+	if err := app.writeJSON(w, http.StatusCreated, user); err != nil {
 		http.Error(w, "Error writing response", http.StatusInternalServerError)
 	}
 }
@@ -111,7 +111,7 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 	user, err := app.store.Users.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			writeJSON(w, http.StatusNotFound, "User not found")
+			app.writeJSON(w, http.StatusNotFound, "User not found")
 			return
 		}
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -123,13 +123,13 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 		Email    *string `json:"email" validate:"email"`
 	}
 
-	if err := readJSON(w, r, &payload); err != nil {
+	if err := app.readJSON(w, r, &payload); err != nil {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	if err := app.validator.Struct(payload); err != nil {
-		writeJSON(w, http.StatusUnprocessableEntity, err.Error())
+		app.writeJSON(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
 
@@ -145,7 +145,7 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	writeJSON(w, http.StatusOK, user)
+	app.writeJSON(w, http.StatusOK, user)
 }
 
 func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -156,7 +156,7 @@ func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request
 
 	if _, err := app.store.Users.GetByID(ctx, id); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			writeJSON(w, http.StatusNotFound, "User not found")
+			app.writeJSON(w, http.StatusNotFound, "User not found")
 			return
 		}
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
