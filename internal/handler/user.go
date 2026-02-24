@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/MyFirstGo/internal/app"
+	"github.com/MyFirstGo/internal/domain"
 	"github.com/MyFirstGo/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
@@ -31,7 +32,7 @@ func (h *UserHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if users == nil {
-		users = []store.User{}
+		users = []domain.User{}
 	}
 
 	h.App.WriteJSON(w, http.StatusOK, users)
@@ -94,7 +95,7 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	user := &store.User{
+	user := &domain.User{
 		Username: payload.Username,
 		Email:    payload.Email,
 		Password: string(hashedPassword),

@@ -4,22 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-)
 
-type User struct {
-	ID        int64  `json:"id"`
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-	Password  string `json:"-"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-}
+	"github.com/MyFirstGo/internal/domain"
+)
 
 type UserStore struct {
 	db *sql.DB
 }
 
-func (s *UserStore) GetAll(ctx context.Context) ([]User, error) {
+func (s *UserStore) GetAll(ctx context.Context) ([]domain.User, error) {
 	query := `
 		SELECT id, username, email, created_at, updated_at
 		FROM users
@@ -33,10 +26,10 @@ func (s *UserStore) GetAll(ctx context.Context) ([]User, error) {
 
 	defer rows.Close()
 
-	var users []User
+	var users []domain.User
 
 	for rows.Next() {
-		var user User
+		var user domain.User
 		err := rows.Scan(
 			&user.ID,
 			&user.Username,
@@ -58,14 +51,14 @@ func (s *UserStore) GetAll(ctx context.Context) ([]User, error) {
 	return users, nil
 }
 
-func (s *UserStore) GetByID(ctx context.Context, userID int64) (*User, error) {
+func (s *UserStore) GetByID(ctx context.Context, userID int64) (*domain.User, error) {
 	query := `
 		SELECT id, username, email, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
 
-	user := &User{}
+	user := &domain.User{}
 	err := s.db.QueryRowContext(ctx, query, userID).Scan(
 		&user.ID,
 		&user.Username,
@@ -84,7 +77,7 @@ func (s *UserStore) GetByID(ctx context.Context, userID int64) (*User, error) {
 	return user, nil
 }
 
-func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error) {
+func (s *UserStore) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	query := `
 		SELECT id, username, password, email, created_at, updated_at
 		FROM users
@@ -92,7 +85,7 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error)
 			AND deleted_at IS NULL
 	`
 
-	user := &User{}
+	user := &domain.User{}
 	err := s.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID,
 		&user.Username,
@@ -112,7 +105,7 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error)
 	return user, nil
 }
 
-func (s *UserStore) Create(ctx context.Context, user *User) error {
+func (s *UserStore) Create(ctx context.Context, user *domain.User) error {
 	query := `
 	INSERT INTO users (username, password, email)
 	VALUES ($1, $2, $3)
@@ -137,7 +130,7 @@ func (s *UserStore) Create(ctx context.Context, user *User) error {
 	return nil
 }
 
-func (s *UserStore) Update(ctx context.Context, user *User) error {
+func (s *UserStore) Update(ctx context.Context, user *domain.User) error {
 	query := `
         UPDATE users
         SET username = $2, email = $3, updated_at = NOW()

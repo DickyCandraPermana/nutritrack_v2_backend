@@ -9,6 +9,7 @@ import (
 	"github.com/MyFirstGo/internal/db"
 	"github.com/MyFirstGo/internal/env"
 	"github.com/MyFirstGo/internal/handler"
+	"github.com/MyFirstGo/internal/service"
 	"github.com/MyFirstGo/internal/store"
 	"github.com/go-playground/validator/v10"
 )
@@ -50,7 +51,8 @@ func main() {
 	// 3. Init Handlers (Inject AppState ke sini)
 	healthHandler := handler.NewHealthHandler(appState)
 	authHandler := handler.NewAuthHandler(appState)
-	foodHandler := handler.NewFoodHandler(appState)
+	foodService := service.NewFoodService(appState.Store)
+	foodHandler := handler.NewFoodHandler(appState, foodService)
 	userHandler := handler.NewUserHandler(appState)
 
 	// 4. Mount Routes
