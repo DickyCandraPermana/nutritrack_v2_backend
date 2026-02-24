@@ -2,29 +2,33 @@ package main
 
 import (
 	"log"
+	"net/http"
+	"time"
 
+	"github.com/MyFirstGo/internal/app"
 	"github.com/MyFirstGo/internal/db"
 	"github.com/MyFirstGo/internal/env"
+	"github.com/MyFirstGo/internal/handler"
 	"github.com/MyFirstGo/internal/store"
 	"github.com/go-playground/validator/v10"
 )
 
 func main() {
-	cfg := config{
-		addr: env.GetString("ADDR", ":8080"),
-		db: dbConfig{
-			addr:         env.GetString("DB_ADDR", "postgres://admin:adminpassword@localhost/social?sslmode=disable"),
-			maxOpenConns: env.GetInt("DB_MAX_OPEN_CONNS", 30),
-			maxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 30),
-			maxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
+	cfg := app.Config{
+		Addr: env.GetString("ADDR", ":8080"),
+		Db: app.DBConfig{
+			Addr:         env.GetString("DB_ADDR", "postgres://admin:adminpassword@localhost/social?sslmode=disable"),
+			MaxOpenConns: env.GetInt("DB_MAX_OPEN_CONNS", 30),
+			MaxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 30),
+			MaxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
 		},
 	}
 
 	db, err := db.New(
-		cfg.db.addr,
-		cfg.db.maxOpenConns,
-		cfg.db.maxIdleConns,
-		cfg.db.maxIdleTime,
+		cfg.Db.Addr,
+		cfg.Db.MaxOpenConns,
+		cfg.Db.MaxIdleConns,
+		cfg.Db.MaxIdleTime,
 	)
 
 	if err != nil {
@@ -36,13 +40,36 @@ func main() {
 
 	store := store.NewStorage(db)
 
-	app := &application{
-		config:    cfg,
-		store:     store,
-		validator: validator.New(),
+	// 2. Init Shared App State
+	appState := &app.Application{
+		Config:    cfg,
+		Store:     store,
+		Validator: validator.New(),
 	}
 
-	mux := app.mount()
+	// 3. Init Handlers (Inject AppState ke sini)
+	healthHandler := handler.NewHealthHandler(appState)
+	foodHandler := handler.NewFoodHandler(appState)
+	userHandler := handler.NewUserHandler(appState)
 
-	log.Fatal(app.run(mux))
+	// 4. Mount Routes
+	mux := mountRoutes(appState, healthHandler, foodHandler, userHandler)
+
+	// 5. Run Server
+	runServer(appState, mux)
+}
+
+func runServer(app *app.Application, mux http.Handler) error {
+
+	srv := &http.Server{
+		Addr:         app.Config.Addr,
+		Handler:      mux,
+		WriteTimeout: time.Second * 30,
+		ReadTimeout:  time.Second * 10,
+		IdleTimeout:  time.Minute,
+	}
+
+	log.Printf("Server has started at server :%s", app.Config.Addr)
+
+	return srv.ListenAndServe()
 }
