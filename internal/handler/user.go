@@ -21,7 +21,7 @@ func NewUserHandler(app *app.Application) *UserHandler {
 	return &UserHandler{App: app}
 }
 
-func (h *UserHandler) getUsers(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	users, err := h.App.Store.Users.GetAll(ctx)
@@ -37,7 +37,7 @@ func (h *UserHandler) getUsers(w http.ResponseWriter, r *http.Request) {
 	h.App.WriteJSON(w, http.StatusOK, users)
 }
 
-func (h *UserHandler) getUserById(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) GetUserById(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "userID")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -63,7 +63,7 @@ func (h *UserHandler) getUserById(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *UserHandler) createUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		Username string `json:"username" validate:"required,min=3,max=30"`
 		Email    string `json:"email" validate:"required,email"`
@@ -111,7 +111,7 @@ func (h *UserHandler) createUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func (h *UserHandler) updateUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "userID")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
 
@@ -157,7 +157,7 @@ func (h *UserHandler) updateUserHandler(w http.ResponseWriter, r *http.Request) 
 	h.App.WriteJSON(w, http.StatusOK, user)
 }
 
-func (h *UserHandler) deleteUserHandler(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "userID")
 	id, _ := strconv.ParseInt(idStr, 10, 64)
 

@@ -19,7 +19,7 @@ func NewAuthHandler(app *app.Application) *AuthHandler {
 }
 
 // TODO: Selesaikan copy dari cmd/api
-func (h *AuthHandler) loginHandler(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		Email    string `json:"email" validate:"email,required"`
 		Password string `json:"password" validate:"required,min=8"`
