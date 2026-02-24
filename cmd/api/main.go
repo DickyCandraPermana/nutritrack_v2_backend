@@ -49,11 +49,12 @@ func main() {
 
 	// 3. Init Handlers (Inject AppState ke sini)
 	healthHandler := handler.NewHealthHandler(appState)
+	authHandler := handler.NewAuthHandler(appState)
 	foodHandler := handler.NewFoodHandler(appState)
 	userHandler := handler.NewUserHandler(appState)
 
 	// 4. Mount Routes
-	mux := mountRoutes(appState, healthHandler, foodHandler, userHandler)
+	mux := mountRoutes(appState, healthHandler, authHandler, foodHandler, userHandler)
 
 	// 5. Run Server
 	runServer(appState, mux)

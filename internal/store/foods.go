@@ -85,16 +85,20 @@ func (s *FoodStore) GetPaginated(ctx context.Context, limit, offset int) ([]Food
 
 func (s *FoodStore) GetByID(ctx context.Context, id int64) (*Food, error) {
 	query := `
-	SELECT id, name, description, nutrients, created_at, updated_at
-	FROM foods
-	WHERE id = $1 AND deleted_at IS NULL
-	`
+        SELECT id, name, description, nutrients, created_at, updated_at
+        FROM foods
+        WHERE id = $1 AND deleted_at IS NULL
+    `
 
 	food := &Food{}
+
+	// 1. Deklarasikan variabel sementara untuk kolom nullable
+	var description sql.NullString
+
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&food.ID,
 		&food.Name,
-		&food.Description,
+		&description, // Scan ke sql.NullString
 		&food.Nutrients,
 		&food.CreatedAt,
 		&food.UpdatedAt,
@@ -106,6 +110,9 @@ func (s *FoodStore) GetByID(ctx context.Context, id int64) (*Food, error) {
 		}
 		return nil, err
 	}
+
+	// 2. Assign ke struct. Jika NULL, .String otomatis jadi "" (empty string)
+	food.Description = description.String
 
 	return food, nil
 }
