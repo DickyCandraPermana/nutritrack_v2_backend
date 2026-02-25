@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/MyFirstGo/internal/app"
+	"github.com/MyFirstGo/internal/domain"
 	"github.com/MyFirstGo/internal/store"
 	"github.com/go-chi/chi/v5"
 )
@@ -16,28 +17,27 @@ type FoodHandler struct {
 }
 
 func NewFoodHandler(app *app.Application) *FoodHandler {
-	return &FoodHandler{App: app}
+	return &FoodHandler{
+		App: app,
+	}
 }
 
 func (h *FoodHandler) GetFoodsHandler(w http.ResponseWriter, r *http.Request) {
 	pageStr := r.URL.Query().Get("page")
 	sizeStr := r.URL.Query().Get("size")
 
-	page, _ := strconv.Atoi(pageStr)
-	if page < 1 {
+	page, err := strconv.Atoi(pageStr)
+	if err != nil {
 		page = 1
 	}
-
-	size, _ := strconv.Atoi(sizeStr)
-	if size < 1 || size > 100 {
+	size, err := strconv.Atoi(sizeStr)
+	if err != nil {
 		size = 10
 	}
 
-	offset := (page - 1) * size
-
-	foods, err := h.App.Store.Foods.GetPaginated(r.Context(), size, offset)
+	foods, err := h.App.Service.Foods.GetPaginated(r.Context(), page, size)
 	if err != nil {
-		h.App.ServerErrorResponse(w, r, err) // Log error & kirim 500
+		h.App.ServerErrorResponse(w, r, err)
 		return
 	}
 
@@ -52,7 +52,7 @@ func (h *FoodHandler) GetFoodByIdHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	food, err := h.App.Store.Foods.GetByID(r.Context(), id)
+	food, err := h.App.Service.Foods.GetByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			h.App.NotFoundResponse(w, r)
@@ -67,9 +67,16 @@ func (h *FoodHandler) GetFoodByIdHandler(w http.ResponseWriter, r *http.Request)
 
 func (h *FoodHandler) CreateFoodsHandler(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
-		Name        string          `json:"name" validate:"required,max=255"`
-		Description string          `json:"description"`
-		Nutrients   store.Nutrients `json:"nutrients"`
+		Name        string  `json:"name" validate:"required,max=255"`
+		Description string  `json:"description"`
+		ServingSize float64 `json:"serving_size"`
+		ServingUnit string  `json:"serving_unit"`
+		Nutrients   []struct {
+			ID     int64   `json:"id" validate:"required"`
+			Name   string  `json:"name"`
+			Unit   string  `json:"unit"`
+			Amount float64 `json:"amount" validate:"required"`
+		} `json:"nutrients"`
 	}
 
 	if err := h.App.ReadJSON(w, r, &payload); err != nil {
@@ -82,13 +89,23 @@ func (h *FoodHandler) CreateFoodsHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	food := &store.Food{
+	food := &domain.Food{
 		Name:        payload.Name,
 		Description: payload.Description,
-		Nutrients:   payload.Nutrients,
+		ServingSize: &payload.ServingSize,
+		ServingUnit: &payload.ServingUnit,
 	}
 
-	if err := h.App.Store.Foods.Create(r.Context(), food); err != nil {
+	for _, n := range payload.Nutrients {
+		food.Nutrients = append(food.Nutrients, domain.NutrientAmount{
+			ID:     n.ID,
+			Name:   n.Name,
+			Unit:   n.Unit,
+			Amount: n.Amount,
+		})
+	}
+
+	if err := h.App.Service.Foods.Create(r.Context(), food); err != nil {
 		h.App.ServerErrorResponse(w, r, err)
 		return
 	}
@@ -105,9 +122,14 @@ func (h *FoodHandler) UpdateFoodsHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	var payload struct {
-		Name        *string          `json:"name" validate:"omitempty,max=255"`
-		Description *string          `json:"description"`
-		Nutrients   *store.Nutrients `json:"nutrients"`
+		Name        *string  `json:"name" validate:"max=255"`
+		Description *string  `json:"description"`
+		ServingSize *float64 `json:"serving_size"`
+		ServingUnit *string  `json:"serving_unit"`
+		Nutrients   *[]struct {
+			ID     int64   `json:"id" validate:"required"`
+			Amount float64 `json:"amount" validate:"required"`
+		} `json:"nutrients"`
 	}
 
 	if err := h.App.ReadJSON(w, r, &payload); err != nil {
@@ -116,7 +138,7 @@ func (h *FoodHandler) UpdateFoodsHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	ctx := r.Context()
-	food, err := h.App.Store.Foods.GetByID(ctx, id)
+	food, err := h.App.Service.Foods.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			h.App.NotFoundResponse(w, r)
@@ -132,11 +154,24 @@ func (h *FoodHandler) UpdateFoodsHandler(w http.ResponseWriter, r *http.Request)
 	if payload.Description != nil {
 		food.Description = *payload.Description
 	}
+	if payload.ServingSize != nil {
+		food.ServingSize = payload.ServingSize
+	}
+	if payload.ServingUnit != nil {
+		food.ServingUnit = payload.ServingUnit
+	}
 	if payload.Nutrients != nil {
-		food.Nutrients = *payload.Nutrients
+		food.Nutrients = make([]domain.NutrientAmount, 0, len(*payload.Nutrients))
+
+		for _, n := range *payload.Nutrients {
+			food.Nutrients = append(food.Nutrients, domain.NutrientAmount{
+				ID:     n.ID,
+				Amount: n.Amount,
+			})
+		}
 	}
 
-	if err := h.App.Store.Foods.Update(ctx, food); err != nil {
+	if err := h.App.Service.Foods.Update(ctx, food); err != nil {
 		h.App.ServerErrorResponse(w, r, err)
 		return
 	}
@@ -152,7 +187,7 @@ func (h *FoodHandler) DeleteFoodsHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := h.App.Store.Foods.Delete(r.Context(), id); err != nil {
+	if err := h.App.Service.Foods.Delete(r.Context(), id); err != nil {
 		h.App.ServerErrorResponse(w, r, err)
 		return
 	}

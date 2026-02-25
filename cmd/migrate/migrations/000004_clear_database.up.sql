@@ -1,3 +1,0 @@
-ALTER TABLE posts
-DROP CONSTRAINT fk_user;
-DROP TABLE IF EXISTS posts;

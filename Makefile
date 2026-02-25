@@ -1,5 +1,5 @@
 include .envrc
-MIGRATIONS_PATH = ./cmd/migrate/migrations
+MIGRATIONS_PATH = ./migrations
 
 .PHONY: migrate-create
 migration:

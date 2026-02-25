@@ -3,172 +3,262 @@ package store
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
-	"encoding/json"
-	"errors"
+	"time"
+
+	"github.com/MyFirstGo/internal/domain"
+	"github.com/lib/pq"
 )
-
-type Food struct {
-	ID          int64     `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Nutrients   Nutrients `json:"nutrients"`
-	CreatedAt   string    `json:"created_at"`
-	UpdatedAt   string    `json:"updated_at"`
-}
-
-type Nutrients map[string]float64
-
-// Value mengonversi map ke JSON saat simpan ke DB
-func (n Nutrients) Value() (driver.Value, error) {
-	return json.Marshal(n)
-}
-
-// Scan mengonversi JSON dari DB kembali ke map saat select
-func (n *Nutrients) Scan(value any) error {
-	b, ok := value.([]byte)
-	if !ok {
-		return errors.New("type assertion to []byte failed")
-	}
-
-	return json.Unmarshal(b, &n)
-}
 
 type FoodStore struct {
 	db *sql.DB
 }
 
-func (s *FoodStore) GetPaginated(ctx context.Context, limit, offset int) ([]Food, error) {
-	query := `
-	SELECT
-		id,
-		name,
-		COALESCE(description, ''),
-		nutrients,
-		created_at,
-		updated_at
+func (s *FoodStore) GetPaginated(ctx context.Context, limit, offset int) ([]*domain.Food, error) {
+	queryFoods := `
+	SELECT id, name, description, serving_size, serving_unit
 	FROM foods
 	WHERE deleted_at IS NULL
-	ORDER BY id
 	LIMIT $1 OFFSET $2
 	`
 
-	rows, err := s.db.QueryContext(ctx, query, limit, offset)
+	rows, err := s.db.QueryContext(ctx, queryFoods, limit, offset)
 	if err != nil {
 		return nil, err
 	}
-
 	defer rows.Close()
 
-	var foods []Food
+	var foods []*domain.Food
+	var foodIDs []int64
+	foodMap := make(map[int64]*domain.Food)
 
 	for rows.Next() {
-		var food Food
+		f := &domain.Food{Nutrients: []domain.NutrientAmount{}}
+		var description sql.NullString
+		if err := rows.Scan(&f.ID, &f.Name, &description, &f.ServingSize, &f.ServingUnit); err != nil {
+			return nil, err
+		}
+		f.Description = description.String
 
-		err := rows.Scan(
-			&food.ID,
-			&food.Name,
-			&food.Description,
-			&food.Nutrients,
-			&food.CreatedAt,
-			&food.UpdatedAt,
-		)
-		if err != nil {
+		foods = append(foods, f)
+		foodIDs = append(foodIDs, f.ID)
+		foodMap[f.ID] = f
+	}
+
+	if len(foodIDs) == 0 {
+		return foods, nil
+	}
+
+	queryNutrient := `
+	SELECT fn.food_id, n.id, n.name, n.unit, fn.amount
+	FROM food_nutrients fn
+	JOIN nutrients n ON fn.nutrient_id = n.id
+	WHERE fn.food_id = ANY($1)
+	`
+
+	nutRows, err := s.db.QueryContext(ctx, queryNutrient, pq.Array(foodIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer nutRows.Close()
+
+	for nutRows.Next() {
+		var foodID int64
+		var na domain.NutrientAmount
+		if err := nutRows.Scan(&foodID, &na.ID, &na.Name, &na.Unit, &na.Amount); err != nil {
 			return nil, err
 		}
 
-		foods = append(foods, food)
+		if f, ok := foodMap[foodID]; ok {
+			f.Nutrients = append(f.Nutrients, na)
+		}
 	}
 
 	return foods, nil
 }
 
-func (s *FoodStore) GetByID(ctx context.Context, id int64) (*Food, error) {
+func (s *FoodStore) GetByID(ctx context.Context, id int64) (*domain.Food, error) {
 	query := `
-        SELECT id, name, description, nutrients, created_at, updated_at
-        FROM foods
-        WHERE id = $1 AND deleted_at IS NULL
+        SELECT f.id,
+							 f.name,
+							 f.description,
+							 f.serving_size,
+							 f.serving_unit,
+							 fn.amount,
+							 n.id,
+							 n.name AS nutrient_name,
+							 n.unit,
+							 f.created_at,
+							 f.updated_at
+        FROM foods f
+				JOIN food_nutrients fn ON fn.food_id = f.id
+				JOIN nutrients n ON n.id = fn.nutrient_id
+        WHERE f.id = $1
+					AND deleted_at IS NULL
     `
 
-	food := &Food{}
-
-	// 1. Deklarasikan variabel sementara untuk kolom nullable
-	var description sql.NullString
-
-	err := s.db.QueryRowContext(ctx, query, id).Scan(
-		&food.ID,
-		&food.Name,
-		&description, // Scan ke sql.NullString
-		&food.Nutrients,
-		&food.CreatedAt,
-		&food.UpdatedAt,
-	)
-
+	rows, err := s.db.QueryContext(ctx, query, id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
-		}
 		return nil, err
 	}
+	defer rows.Close()
 
-	// 2. Assign ke struct. Jika NULL, .String otomatis jadi "" (empty string)
-	food.Description = description.String
+	var food *domain.Food
+
+	for rows.Next() {
+		var nID sql.NullInt64
+		var nName, nUnit, nDescription sql.NullString
+		var nAmount sql.NullFloat64
+
+		if food == nil {
+			food = &domain.Food{Nutrients: []domain.NutrientAmount{}}
+			err = rows.Scan(
+				&food.ID, &food.Name, &nDescription, &food.ServingSize, &food.ServingUnit,
+				&nAmount, &nID, &nName, &nUnit, &food.CreatedAt, &food.UpdatedAt,
+			)
+
+			food.Description = nDescription.String
+		} else {
+			var ignoreID sql.NullInt64
+			var ignoreName, ignoreUnit, ignoreDescription sql.NullString
+			var ignoreSize sql.NullFloat64
+			var ignoreCreatedAt, ignoreUpdatedAt time.Time
+			err = rows.Scan(
+				&ignoreID, &ignoreName, &ignoreDescription, &ignoreSize, &ignoreUnit,
+				&nAmount, &nID, &nName, &nUnit,
+				&ignoreCreatedAt, &ignoreUpdatedAt,
+			)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		if nID.Valid {
+			food.Nutrients = append(food.Nutrients, domain.NutrientAmount{
+				ID:     nID.Int64,
+				Name:   nName.String,
+				Unit:   nUnit.String,
+				Amount: nAmount.Float64,
+			})
+		}
+	}
+
+	if food == nil {
+		return nil, ErrNotFound
+	}
 
 	return food, nil
 }
 
-func (s *FoodStore) Create(ctx context.Context, food *Food) error {
-	query := `
-	INSERT INTO foods (name, description, nutrients)
-	VALUES ($1, $2, $3) RETURNING id, created_at, updated_at
+func (s *FoodStore) Create(ctx context.Context, food *domain.Food) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	
+
+	queryFood := `
+			INSERT INTO foods (name, description, serving_size, serving_unit)
+			VALUES ($1, $2, $3, $4)
+			RETURNING id, created_at, updated_at
 	`
 
-	err := s.db.QueryRowContext(
-		ctx,
-		query,
+	err = tx.QueryRowContext(ctx, queryFood,
 		food.Name,
 		food.Description,
-		food.Nutrients,
-	).Scan(
-		&food.ID,
-		&food.CreatedAt,
-		&food.UpdatedAt,
-	)
+		food.ServingSize,
+		food.ServingUnit,
+	).Scan(&food.ID, &food.CreatedAt, &food.UpdatedAt)
 
 	if err != nil {
 		return err
 	}
 
-	return nil
+	if len(food.Nutrients) > 0 {
+		queryNutrient := `
+		INSERT INTO food_nutrients (food_id, nutrient_id, amount)
+		VALUES ($1, $2, $3)
+		`
+		stmt, err := tx.PrepareContext(ctx, queryNutrient)
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+
+		for _, n := range food.Nutrients {
+			_, err := stmt.ExecContext(ctx, food.ID, n.ID, n.Amount)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit()
 }
 
-func (s *FoodStore) Update(ctx context.Context, food *Food) error {
-	query := `
-	UPDATE foods
-	SET
-		name = $2,
-		description = $3,
-		nutrients = $4,
-		updated_at = NOW()
-	WHERE id = $1 AND deleted_at IS NULL
-	`
+func (s *FoodStore) Update(ctx context.Context, food *domain.Food) error {
+	// 1. Mulai Transaksi
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 
-	res, err := s.db.ExecContext(ctx, query, food.ID, food.Name, food.Description, food.Nutrients)
+	// 2. Update data utama makanan
+	queryFood := `
+		UPDATE foods
+		SET name = $1, description = $2, serving_size = $3, serving_unit = $4, updated_at = NOW()
+		WHERE id = $5 AND deleted_at IS NULL`
+
+	res, err := tx.ExecContext(ctx, queryFood,
+		food.Name,
+		food.Description,
+		food.ServingSize,
+		food.ServingUnit,
+		food.ID,
+	)
 	if err != nil {
 		return err
 	}
 
-	row, err := res.RowsAffected()
-
+	// Cek apakah ada baris yang diupdate (takutnya ID tidak ketemu)
+	rows, err := res.RowsAffected()
 	if err != nil {
 		return err
 	}
-
-	if row == 0 {
+	if rows == 0 {
 		return ErrNotFound
 	}
 
-	return nil
+	if food.Nutrients != nil {
+		// 3. Hapus nutrisi lama (Clean up)
+		queryDeleteNutrients := `DELETE FROM food_nutrients WHERE food_id = $1`
+		if _, err := tx.ExecContext(ctx, queryDeleteNutrients, food.ID); err != nil {
+			return err
+		}
+
+		// 4. Insert nutrisi baru (Re-insert)
+		if len(food.Nutrients) > 0 {
+			queryInsert := `INSERT INTO food_nutrients (food_id, nutrient_id, amount) VALUES ($1, $2, $3)`
+			stmt, err := tx.PrepareContext(ctx, queryInsert)
+			if err != nil {
+				return err
+			}
+			defer stmt.Close()
+
+			for _, n := range food.Nutrients {
+				if _, err := stmt.ExecContext(ctx, food.ID, n.ID, n.Amount); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// 5. Selesaikan Transaksi
+	return tx.Commit()
 }
 
 func (s *FoodStore) Delete(ctx context.Context, id int64) error {

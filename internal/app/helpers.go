@@ -2,8 +2,12 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/go-playground/validator/v10"
 )
 
 func (app *Application) WriteJSON(w http.ResponseWriter, status int, data any) error {
@@ -28,6 +32,27 @@ func (app *Application) ErrorResponse(w http.ResponseWriter, _ *http.Request, st
 		log.Printf("error writing json: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+}
+
+func (app *Application) ValidationErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
+	var validationErrors validator.ValidationErrors
+
+	// Gunakan errors.As, bukan type assertion langsung
+	if errors.As(err, &validationErrors) {
+		errDetails := make([]string, 0, len(validationErrors))
+		for _, e := range validationErrors {
+			errDetails = append(errDetails, fmt.Sprintf("%s: %s", e.Field(), e.Tag()))
+		}
+
+		app.WriteJSON(w, http.StatusUnprocessableEntity, map[string]any{
+			"error":   "Validation failed",
+			"details": errDetails,
+		})
+		return
+	}
+
+	// Fallback kalau bukan validation error
+	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 }
 
 func (app *Application) ServerErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
