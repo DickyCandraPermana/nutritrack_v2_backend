@@ -7,6 +7,7 @@ import (
 
 	"github.com/MyFirstGo/internal/domain"
 	"github.com/MyFirstGo/internal/helper"
+	"github.com/MyFirstGo/internal/mapper"
 	"github.com/MyFirstGo/internal/store"
 	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
@@ -17,8 +18,19 @@ type UserService struct {
 	validator validator.Validate
 }
 
-func (s *UserService) GetPaginated(ctx context.Context, size, page int) ([]domain.User, error) {
-	return s.store.Users.GetAll(ctx)
+func (s *UserService) GetPaginated(ctx context.Context, size, page int) ([]*domain.User, error) {
+
+	if page < 1 {
+		page = 1
+	}
+
+	if size < 1 || size > 100 {
+		size = 10
+	}
+
+	offset := (page - 1) * size
+
+	return s.store.Users.GetPaginated(ctx, size, offset)
 }
 
 func (s *UserService) GetByID(ctx context.Context, id int64) (*domain.User, error) {
@@ -45,6 +57,26 @@ func (s *UserService) Create(ctx context.Context, payload domain.UserCreateInput
 		Password: string(hashedPassword),
 	}
 
+	if payload.Weight != nil {
+		user.Weight = payload.Weight
+	}
+
+	if payload.Height != nil {
+		user.Height = payload.Height
+	}
+
+	if payload.DateOfBirth != nil {
+		user.DateOfBirth = payload.DateOfBirth
+	}
+
+	if payload.ActivityLevel != nil {
+		user.ActivityLevel = payload.ActivityLevel
+	}
+
+	if payload.Gender != nil {
+		user.Gender = payload.Gender
+	}
+
 	if err = s.store.Users.Create(ctx, user); err != nil {
 		if helper.IsDuplicateKeyError(err) {
 			return nil, domain.ErrDuplicateEmail
@@ -52,13 +84,9 @@ func (s *UserService) Create(ctx context.Context, payload domain.UserCreateInput
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	userRes := domain.UserResponse{
-		ID:       user.ID,
-		Username: user.Username,
-		Email:    user.Email,
-	}
+	res := mapper.UserToUserResponse(user)
 
-	return &userRes, nil
+	return res, nil
 }
 
 func (s *UserService) Update(ctx context.Context, id int64, payload domain.UserUpdateInput) (*domain.UserResponse, error) {
@@ -75,21 +103,38 @@ func (s *UserService) Update(ctx context.Context, id int64, payload domain.UserU
 	if payload.Username != nil {
 		user.Username = *payload.Username
 	}
+
 	if payload.Email != nil {
 		user.Email = *payload.Email
+	}
+
+	if payload.Weight != nil {
+		user.Weight = payload.Weight
+	}
+
+	if payload.Height != nil {
+		user.Height = payload.Height
+	}
+
+	if payload.DateOfBirth != nil {
+		user.DateOfBirth = payload.DateOfBirth
+	}
+
+	if payload.ActivityLevel != nil {
+		user.ActivityLevel = payload.ActivityLevel
+	}
+
+	if payload.Gender != nil {
+		user.Gender = payload.Gender
 	}
 
 	if err = s.store.Users.Update(ctx, user); err != nil {
 		return nil, err
 	}
 
-	res := domain.UserResponse{
-		ID:       user.ID,
-		Username: user.Username,
-		Email:    user.Email,
-	}
+	res := mapper.UserToUserResponse(user)
 
-	return &res, nil
+	return res, nil
 }
 
 func (s *UserService) Delete(ctx context.Context, id int64) error {

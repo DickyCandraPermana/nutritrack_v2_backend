@@ -9,15 +9,16 @@ import (
 )
 
 type Service struct {
+	Auth interface {
+		Login(context.Context, domain.UserLoginInput) (*domain.LoginResponse, error)
+	}
 	Users interface {
+		GetPaginated(context.Context, int, int) ([]*domain.User, error)
 		GetByID(context.Context, int64) (*domain.User, error)
+		GetByEmail(context.Context, string) (*domain.User, error)
 		Create(context.Context, domain.UserCreateInput) (*domain.UserResponse, error)
 		Update(context.Context, int64, domain.UserUpdateInput) (*domain.UserResponse, error)
 		Delete(context.Context, int64) error
-		// GetAll(context.Context) ([]domain.User, error)
-		// GetByEmail(context.Context, string) (*domain.User, error)
-		// Create(context.Context, *domain.User) error
-		// Update(context.Context, *domain.User) error
 	}
 
 	Foods interface {
@@ -31,6 +32,7 @@ type Service struct {
 
 func NewService(store store.Storage, validator validator.Validate) Service {
 	return Service{
+		Auth:  &AuthService{store, validator},
 		Users: &UserService{store, validator},
 		Foods: &foodService{store},
 	}

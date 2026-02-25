@@ -12,6 +12,7 @@ type Storage struct {
 		Create(context.Context, *Post) error
 	}
 	Users interface {
+		GetPaginated(context.Context, int, int) ([]*domain.User, error)
 		GetAll(context.Context) ([]domain.User, error)
 		GetByID(context.Context, int64) (*domain.User, error)
 		GetByEmail(context.Context, string) (*domain.User, error)

@@ -21,23 +21,30 @@ func NewUserHandler(app *app.Application) *UserHandler {
 	return &UserHandler{App: app}
 }
 
-func (h *UserHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) GetUsersHandler(w http.ResponseWriter, r *http.Request) {
+	pageStr := r.URL.Query().Get("page")
+	sizeStr := r.URL.Query().Get("size")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil {
+		page = 1
+	}
+	size, err := strconv.Atoi(sizeStr)
+	if err != nil {
+		size = 10
+	}
 	ctx := r.Context()
 
-	users, err := h.App.Store.Users.GetAll(ctx)
+	users, err := h.App.Service.Users.GetPaginated(ctx, page, size)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	if users == nil {
-		users = []domain.User{}
-	}
-
 	h.App.WriteJSON(w, http.StatusOK, users)
 }
 
-func (h *UserHandler) GetUserById(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) GetUserByIdHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "userID")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {

@@ -1,13 +1,13 @@
 package handler
 
 import (
-	"fmt"
+	"errors"
+	"log"
 	"net/http"
 
 	"github.com/MyFirstGo/internal/app"
-	"github.com/MyFirstGo/internal/auth"
-	"github.com/go-playground/validator/v10"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/MyFirstGo/internal/domain"
+	"github.com/MyFirstGo/internal/store"
 )
 
 type AuthHandler struct {
@@ -18,11 +18,10 @@ func NewAuthHandler(app *app.Application) *AuthHandler {
 	return &AuthHandler{App: app}
 }
 
-// TODO: Selesaikan copy dari cmd/api
 func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
-		Email    string `json:"email" validate:"email,required"`
-		Password string `json:"password" validate:"required,min=8"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	if err := h.App.ReadJSON(w, r, &payload); err != nil {
@@ -30,91 +29,26 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.App.Validator.Struct(payload); err != nil {
-		var errDetails []string
-		for _, err := range err.(validator.ValidationErrors) {
-			errDetails = append(errDetails, fmt.Sprintf("%s is %s", err.Field(), err.Tag()))
-		}
-
-		h.App.WriteJSON(w, http.StatusUnprocessableEntity, map[string]any{
-			"error":   "Validation failed",
-			"details": errDetails,
-		})
-		return
-	}
-
 	ctx := r.Context()
 
-	user, err := h.App.Store.Users.GetByEmail(ctx, payload.Email)
+	input := domain.UserLoginInput{
+		Email:    payload.Email,
+		Password: payload.Password,
+	}
+
+	res, err := h.App.Service.Auth.Login(ctx, input)
 	if err != nil {
-		h.App.WriteJSON(w, http.StatusUnauthorized, "Email atau password salah")
-		return
-	}
-
-	fmt.Println(user.Password)
-
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(payload.Password))
-	if err != nil {
-
-		h.App.WriteJSON(w, http.StatusUnauthorized, fmt.Sprintf("%s is %s", user.Password, []byte(payload.Password)))
-		return
-	}
-
-	token, err := auth.GenerateToken(user.ID)
-	if err != nil {
-		http.Error(w, "Gagal generate token", http.StatusInternalServerError)
-		return
-	}
-
-	h.App.WriteJSON(w, http.StatusOK, map[string]string{"token": token})
-}
-
-func (h *AuthHandler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
-	var payload struct {
-		Email    string `json:"email" validate:"email,required"`
-		Password string `json:"password" validate:"required,min=8"`
-	}
-
-	if err := h.App.ReadJSON(w, r, &payload); err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	if err := h.App.Validator.Struct(payload); err != nil {
-		var errDetails []string
-		for _, err := range err.(validator.ValidationErrors) {
-			errDetails = append(errDetails, fmt.Sprintf("%s is %s", err.Field(), err.Tag()))
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			h.App.WriteJSON(w, http.StatusUnauthorized, "email atau password salah")
+		case errors.Is(err, domain.ErrInvalidCredentials):
+			h.App.WriteJSON(w, http.StatusUnauthorized, "email atau password salah")
+		default:
+			log.Printf("Database error in LoginHandler: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}
-
-		h.App.WriteJSON(w, http.StatusUnprocessableEntity, map[string]any{
-			"error":   "Validation failed",
-			"details": errDetails,
-		})
 		return
 	}
-
-	ctx := r.Context()
-
-	user, err := h.App.Store.Users.GetByEmail(ctx, payload.Email)
-	if err != nil {
-		h.App.WriteJSON(w, http.StatusUnauthorized, "Email atau password salah")
-		return
-	}
-
-	fmt.Println(user.Password)
-
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(payload.Password))
-	if err != nil {
-
-		h.App.WriteJSON(w, http.StatusUnauthorized, fmt.Sprintf("%s is %s", user.Password, []byte(payload.Password)))
-		return
-	}
-
-	token, err := auth.GenerateToken(user.ID)
-	if err != nil {
-		http.Error(w, "Gagal generate token", http.StatusInternalServerError)
-		return
-	}
-
-	h.App.WriteJSON(w, http.StatusOK, map[string]string{"token": token})
+	// Success response
+	h.App.WriteJSON(w, http.StatusOK, res)
 }

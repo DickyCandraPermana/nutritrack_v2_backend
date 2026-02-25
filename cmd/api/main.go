@@ -18,7 +18,7 @@ func main() {
 	cfg := app.Config{
 		Addr: env.GetString("ADDR", ":8080"),
 		Db: app.DBConfig{
-			Addr:         env.GetString("DB_ADDR", "postgres://admin:adminpassword@localhost/social?sslmode=disable"),
+			Addr:         env.GetString("DB_ADDR", "postgres://admin:adminpassword@localhost/nutritrack?sslmode=disable"),
 			MaxOpenConns: env.GetInt("DB_MAX_OPEN_CONNS", 30),
 			MaxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 30),
 			MaxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),

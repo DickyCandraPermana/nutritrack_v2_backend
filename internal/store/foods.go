@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/MyFirstGo/internal/domain"
 	"github.com/lib/pq"
@@ -14,7 +15,7 @@ type FoodStore struct {
 
 func (s *FoodStore) GetPaginated(ctx context.Context, limit, offset int) ([]*domain.Food, error) {
 	queryFoods := `
-	SELECT id, name, serving_size, serving_unit
+	SELECT id, name, description, serving_size, serving_unit
 	FROM foods
 	WHERE deleted_at IS NULL
 	LIMIT $1 OFFSET $2
@@ -32,9 +33,11 @@ func (s *FoodStore) GetPaginated(ctx context.Context, limit, offset int) ([]*dom
 
 	for rows.Next() {
 		f := &domain.Food{Nutrients: []domain.NutrientAmount{}}
-		if err := rows.Scan(&f.ID, &f.Name, &f.Description, &f.ServingSize, &f.ServingUnit); err != nil {
+		var description sql.NullString
+		if err := rows.Scan(&f.ID, &f.Name, &description, &f.ServingSize, &f.ServingUnit); err != nil {
 			return nil, err
 		}
+		f.Description = description.String
 
 		foods = append(foods, f)
 		foodIDs = append(foodIDs, f.ID)
@@ -70,7 +73,7 @@ func (s *FoodStore) GetPaginated(ctx context.Context, limit, offset int) ([]*dom
 		}
 	}
 
-	return nil, nil
+	return foods, nil
 }
 
 func (s *FoodStore) GetByID(ctx context.Context, id int64) (*domain.Food, error) {
@@ -81,6 +84,7 @@ func (s *FoodStore) GetByID(ctx context.Context, id int64) (*domain.Food, error)
 							 f.serving_size,
 							 f.serving_unit,
 							 fn.amount,
+							 n.id,
 							 n.name AS nutrient_name,
 							 n.unit,
 							 f.created_at,
@@ -102,22 +106,26 @@ func (s *FoodStore) GetByID(ctx context.Context, id int64) (*domain.Food, error)
 
 	for rows.Next() {
 		var nID sql.NullInt64
-		var nName, nUnit sql.NullString
+		var nName, nUnit, nDescription sql.NullString
 		var nAmount sql.NullFloat64
 
 		if food == nil {
 			food = &domain.Food{Nutrients: []domain.NutrientAmount{}}
 			err = rows.Scan(
-				&food.ID, &food.Name, &food.Description, &food.ServingSize, &food.ServingUnit,
-				&nID, &nName, &nUnit, &nAmount,
+				&food.ID, &food.Name, &nDescription, &food.ServingSize, &food.ServingUnit,
+				&nAmount, &nID, &nName, &nUnit, &food.CreatedAt, &food.UpdatedAt,
 			)
+
+			food.Description = nDescription.String
 		} else {
-			var ignoreID int64
-			var ignoreName, ignoreUnit, ignoreDescription string
-			var ignoreSize float64
+			var ignoreID sql.NullInt64
+			var ignoreName, ignoreUnit, ignoreDescription sql.NullString
+			var ignoreSize sql.NullFloat64
+			var ignoreCreatedAt, ignoreUpdatedAt time.Time
 			err = rows.Scan(
 				&ignoreID, &ignoreName, &ignoreDescription, &ignoreSize, &ignoreUnit,
-				&nID, &nName, &nUnit, &nAmount,
+				&nAmount, &nID, &nName, &nUnit,
+				&ignoreCreatedAt, &ignoreUpdatedAt,
 			)
 		}
 
@@ -150,10 +158,12 @@ func (s *FoodStore) Create(ctx context.Context, food *domain.Food) error {
 
 	defer tx.Rollback()
 
+	
+
 	queryFood := `
 			INSERT INTO foods (name, description, serving_size, serving_unit)
-			VALUES ($1, $2, $3, $4, $5)
-			RETURNING id, created_at
+			VALUES ($1, $2, $3, $4)
+			RETURNING id, created_at, updated_at
 	`
 
 	err = tx.QueryRowContext(ctx, queryFood,
@@ -161,7 +171,7 @@ func (s *FoodStore) Create(ctx context.Context, food *domain.Food) error {
 		food.Description,
 		food.ServingSize,
 		food.ServingUnit,
-	).Scan(&food.ID, &food.CreatedAt)
+	).Scan(&food.ID, &food.CreatedAt, &food.UpdatedAt)
 
 	if err != nil {
 		return err
@@ -181,7 +191,7 @@ func (s *FoodStore) Create(ctx context.Context, food *domain.Food) error {
 		for _, n := range food.Nutrients {
 			_, err := stmt.ExecContext(ctx, food.ID, n.ID, n.Amount)
 			if err != nil {
-				return nil
+				return err
 			}
 		}
 	}

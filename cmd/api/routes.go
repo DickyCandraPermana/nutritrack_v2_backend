@@ -38,11 +38,11 @@ func mountRoutes(
 		})
 
 		r.Route("/users", func(r chi.Router) {
-			r.Get("/", userH.GetUsers)
+			r.Get("/", userH.GetUsersHandler)
 			r.Post("/", userH.CreateUserHandler)
 
 			r.Route("/{userID}", func(r chi.Router) {
-				r.Get("/", userH.GetUserById)
+				r.Get("/", userH.GetUserByIdHandler)
 				r.Patch("/", userH.UpdateUserHandler)
 				r.Delete("/", userH.DeleteUserHandler)
 			})

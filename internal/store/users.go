@@ -12,11 +12,69 @@ type UserStore struct {
 	db *sql.DB
 }
 
+func (s *UserStore) GetPaginated(ctx context.Context, limit, offset int) ([]*domain.User, error) {
+	queryFoods := `
+	SELECT
+			id,
+			username,
+			email,
+			height,
+			weight,
+			date_of_birth,
+			activity_level,
+			gender,
+			created_at,
+			updated_at
+	FROM users
+	WHERE deleted_at IS NULL
+	LIMIT $1 OFFSET $2
+	`
+
+	rows, err := s.db.QueryContext(ctx, queryFoods, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*domain.User
+
+	for rows.Next() {
+		u := &domain.User{}
+		if err := rows.Scan(
+			&u.ID,
+			&u.Username,
+			&u.Email,
+			&u.Weight,
+			&u.Height,
+			&u.DateOfBirth,
+			&u.ActivityLevel,
+			&u.Gender,
+			&u.CreatedAt,
+			&u.UpdatedAt); err != nil {
+			return nil, err
+		}
+
+		users = append(users, u)
+	}
+
+	return users, nil
+}
+
 func (s *UserStore) GetAll(ctx context.Context) ([]domain.User, error) {
 	query := `
-		SELECT id, username, email, created_at, updated_at
+		SELECT
+			id,
+			username,
+			email,
+			height,
+			weight,
+			date_of_birth,
+			activity_level,
+			gender,
+			created_at,
+			updated_at
 		FROM users
-		WHERE deleted_at IS NULL 
+		WHERE deleted_at IS NULL
     ORDER BY created_at DESC
 	`
 	rows, err := s.db.QueryContext(ctx, query)
@@ -34,6 +92,11 @@ func (s *UserStore) GetAll(ctx context.Context) ([]domain.User, error) {
 			&user.ID,
 			&user.Username,
 			&user.Email,
+			&user.Weight,
+			&user.Height,
+			&user.DateOfBirth,
+			&user.ActivityLevel,
+			&user.Gender,
 			&user.CreatedAt,
 			&user.UpdatedAt,
 		)
@@ -53,7 +116,17 @@ func (s *UserStore) GetAll(ctx context.Context) ([]domain.User, error) {
 
 func (s *UserStore) GetByID(ctx context.Context, userID int64) (*domain.User, error) {
 	query := `
-		SELECT id, username, email, created_at, updated_at
+		SELECT
+			id,
+			username,
+			email,
+			height,
+			weight,
+			date_of_birth,
+			activity_level,
+			gender,
+			created_at,
+			updated_at
 		FROM users
 		WHERE id = $1
 	`
@@ -63,6 +136,11 @@ func (s *UserStore) GetByID(ctx context.Context, userID int64) (*domain.User, er
 		&user.ID,
 		&user.Username,
 		&user.Email,
+		&user.Weight,
+		&user.Height,
+		&user.DateOfBirth,
+		&user.ActivityLevel,
+		&user.Gender,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -79,7 +157,18 @@ func (s *UserStore) GetByID(ctx context.Context, userID int64) (*domain.User, er
 
 func (s *UserStore) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	query := `
-		SELECT id, username, password, email, created_at, updated_at
+		SELECT
+			id,
+			username,
+			password,
+			email,
+			weight,
+			height,
+			date_of_birth,
+			activity_level,
+			gender,
+			created_at,
+			updated_at
 		FROM users
 		WHERE email = $1
 			AND deleted_at IS NULL
@@ -91,6 +180,11 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*domain.User,
 		&user.Username,
 		&user.Password,
 		&user.Email,
+		&user.Weight,
+		&user.Height,
+		&user.DateOfBirth,
+		&user.ActivityLevel,
+		&user.Gender,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -107,8 +201,16 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*domain.User,
 
 func (s *UserStore) Create(ctx context.Context, user *domain.User) error {
 	query := `
-	INSERT INTO users (username, password, email)
-	VALUES ($1, $2, $3)
+	INSERT INTO users (
+		username,
+		password,
+		email,
+		height,
+		weight,
+		date_of_birth,
+		activity_level,
+		gender)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	RETURNING id, created_at, updated_at
 	`
 
@@ -117,6 +219,11 @@ func (s *UserStore) Create(ctx context.Context, user *domain.User) error {
 		user.Username,
 		user.Password,
 		user.Email,
+		user.Weight,
+		user.Height,
+		user.DateOfBirth,
+		user.ActivityLevel,
+		user.Gender,
 	).Scan(
 		&user.ID,
 		&user.CreatedAt,
@@ -133,11 +240,29 @@ func (s *UserStore) Create(ctx context.Context, user *domain.User) error {
 func (s *UserStore) Update(ctx context.Context, user *domain.User) error {
 	query := `
         UPDATE users
-        SET username = $2, email = $3, updated_at = NOW()
+        SET
+					username = $2,
+					email = $3,
+					height = $4,
+					weight = $5,
+					date_of_birth = $6,
+					activity_level = $7,
+					gender = $8,
+					updated_at = NOW()
         WHERE id = $1
     `
 
-	res, err := s.db.ExecContext(ctx, query, user.ID, user.Username, user.Email)
+	res, err := s.db.ExecContext(ctx, query,
+		user.ID,
+		user.Username,
+		user.Email,
+		user.Height,
+		user.Weight,
+		user.DateOfBirth,
+		user.ActivityLevel,
+		user.Gender,
+	)
+
 	if err != nil {
 		return err
 	}

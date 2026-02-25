@@ -28,13 +28,11 @@ func (h *FoodHandler) GetFoodsHandler(w http.ResponseWriter, r *http.Request) {
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil {
-		h.App.BadRequestResponse(w, r, err)
-		return
+		page = 1
 	}
 	size, err := strconv.Atoi(sizeStr)
 	if err != nil {
-		h.App.BadRequestResponse(w, r, err)
-		return
+		size = 10
 	}
 
 	foods, err := h.App.Service.Foods.GetPaginated(r.Context(), page, size)
@@ -75,6 +73,8 @@ func (h *FoodHandler) CreateFoodsHandler(w http.ResponseWriter, r *http.Request)
 		ServingUnit string  `json:"serving_unit"`
 		Nutrients   []struct {
 			ID     int64   `json:"id" validate:"required"`
+			Name   string  `json:"name"`
+			Unit   string  `json:"unit"`
 			Amount float64 `json:"amount" validate:"required"`
 		} `json:"nutrients"`
 	}
@@ -92,13 +92,15 @@ func (h *FoodHandler) CreateFoodsHandler(w http.ResponseWriter, r *http.Request)
 	food := &domain.Food{
 		Name:        payload.Name,
 		Description: payload.Description,
-		ServingSize: payload.ServingSize,
-		ServingUnit: payload.ServingUnit,
+		ServingSize: &payload.ServingSize,
+		ServingUnit: &payload.ServingUnit,
 	}
 
 	for _, n := range payload.Nutrients {
 		food.Nutrients = append(food.Nutrients, domain.NutrientAmount{
 			ID:     n.ID,
+			Name:   n.Name,
+			Unit:   n.Unit,
 			Amount: n.Amount,
 		})
 	}
@@ -153,10 +155,10 @@ func (h *FoodHandler) UpdateFoodsHandler(w http.ResponseWriter, r *http.Request)
 		food.Description = *payload.Description
 	}
 	if payload.ServingSize != nil {
-		food.ServingSize = *payload.ServingSize
+		food.ServingSize = payload.ServingSize
 	}
 	if payload.ServingUnit != nil {
-		food.ServingUnit = *payload.ServingUnit
+		food.ServingUnit = payload.ServingUnit
 	}
 	if payload.Nutrients != nil {
 		food.Nutrients = make([]domain.NutrientAmount, 0, len(*payload.Nutrients))

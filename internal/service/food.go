@@ -14,7 +14,17 @@ type foodService struct {
 }
 
 func (s *foodService) validateFoodNutrients(food domain.Food) error {
-	totalWeightInGrams := converter.ToGrams(food.ServingSize, food.ServingUnit)
+	servingSize, servingUnit := 100.00, "g"
+
+	if food.ServingSize != nil {
+		servingSize = *food.ServingSize
+	}
+
+	if food.ServingUnit != nil {
+		servingUnit = *food.ServingUnit
+	}
+
+	totalWeightInGrams := converter.ToGrams(servingSize, servingUnit)
 
 	for _, n := range food.Nutrients {
 		if n.Amount < 0 {
@@ -57,6 +67,17 @@ func (s *foodService) GetByID(ctx context.Context, id int64) (*domain.Food, erro
 }
 
 func (s *foodService) Create(ctx context.Context, food *domain.Food) error {
+
+	servingSize, servingUnit := float64(100), "g"
+
+	if food.ServingSize != nil {
+		food.ServingSize = &servingSize
+	}
+
+	if food.ServingUnit != nil {
+		food.ServingUnit = &servingUnit
+	}
+
 	s.validateFoodNutrients(*food)
 
 	return s.store.Foods.Create(ctx, food)
