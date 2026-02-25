@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 
-	"github.com/MyFirstGo/internal/auth"
 	"github.com/MyFirstGo/internal/domain"
+	"github.com/MyFirstGo/internal/helper"
 	"github.com/MyFirstGo/internal/store"
 	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
@@ -31,7 +31,7 @@ func (s *AuthService) Login(ctx context.Context, payload domain.UserLoginInput) 
 		return nil, domain.ErrInvalidCredentials
 	}
 
-	token, err := auth.GenerateToken(user.ID)
+	token, err := helper.GenerateToken(user.ID)
 	if err != nil {
 		log.Printf("Failed to generate token for user %d: %v", user.ID, err)
 		return nil, err

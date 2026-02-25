@@ -6,6 +6,7 @@ import (
 
 	"github.com/MyFirstGo/internal/app"
 	"github.com/MyFirstGo/internal/handler"
+	mw "github.com/MyFirstGo/internal/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -16,6 +17,7 @@ func mountRoutes(
 	authH *handler.AuthHandler,
 	foodH *handler.FoodHandler,
 	userH *handler.UserHandler,
+	profileH *handler.ProfileHandler,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -52,6 +54,29 @@ func mountRoutes(
 			r.Post("/register", userH.CreateUserHandler)
 			r.Post("/login", authH.LoginHandler)
 		})
+
+		r.Group(func(r chi.Router) {
+			r.Use(mw.AuthMiddleware)
+
+			// User routes
+			r.Route("/me", func(r chi.Router) {
+				r.Get("/", profileH.GetProfileHandler)
+				r.Patch("/", profileH.UpdateProfileHandler)
+				r.Patch("/password", profileH.UpdatePasswordHandler)
+
+				r.Route("/diaries", func(r chi.Router) {
+					r.Get("/", diaryH.GetDiariesHandler)
+					r.Post("/", diaryH.CreateLogHandler)
+
+					r.Route("/{entryID}", func(r chi.Router) {
+						r.Get("/", diaryH.GetDiaryHandler)
+						r.Patch("/", diaryH.UpdateLogHandler)
+					})
+				})
+			})
+
+		})
+
 	})
 
 	return r

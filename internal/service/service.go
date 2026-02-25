@@ -21,6 +21,9 @@ type Service struct {
 		Delete(context.Context, int64) error
 	}
 
+	Diary interface {
+	}
+
 	Foods interface {
 		GetPaginated(context.Context, int, int) ([]*domain.Food, error)
 		GetByID(context.Context, int64) (*domain.Food, error)
@@ -34,6 +37,7 @@ func NewService(store store.Storage, validator validator.Validate) Service {
 	return Service{
 		Auth:  &AuthService{store, validator},
 		Users: &UserService{store, validator},
+		Diary: &DiaryService{store, validator},
 		Foods: &foodService{store},
 	}
 }

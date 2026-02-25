@@ -3,14 +3,12 @@ package store
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/MyFirstGo/internal/domain"
 )
 
 type Storage struct {
-	Posts interface {
-		Create(context.Context, *Post) error
-	}
 	Users interface {
 		GetPaginated(context.Context, int, int) ([]*domain.User, error)
 		GetAll(context.Context) ([]domain.User, error)
@@ -28,12 +26,19 @@ type Storage struct {
 		Update(context.Context, *domain.Food) error
 		Delete(context.Context, int64) error
 	}
+
+	Diary interface {
+		GetSummary(context.Context, int64, time.Time) (*domain.DailySummary, error)
+		GetEntries(context.Context, int64, time.Time) ([]*domain.FoodDiary, error)
+		Create(context.Context, *domain.FoodDiary) error
+		Delete(context.Context, int64) error
+	}
 }
 
 func NewStorage(db *sql.DB) Storage {
 	return Storage{
-		Posts: &PostStore{db},
 		Users: &UserStore{db},
 		Foods: &FoodStore{db},
+		Diary: &DiaryStore{db},
 	}
 }
