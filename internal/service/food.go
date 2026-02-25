@@ -9,20 +9,8 @@ import (
 	"github.com/MyFirstGo/pkg/converter"
 )
 
-type FoodService interface {
-	GetPaginated(context.Context, int, int) ([]*domain.Food, error)
-	GetByID(context.Context, int64) (*domain.Food, error)
-	Create(context.Context, *domain.Food) error
-	Update(context.Context, *domain.Food) error
-	Delete(context.Context, int64) error
-}
-
 type foodService struct {
 	store store.Storage
-}
-
-func NewFoodService(s store.Storage) FoodService {
-	return &foodService{store: s}
 }
 
 func (s *foodService) validateFoodNutrients(food domain.Food) error {

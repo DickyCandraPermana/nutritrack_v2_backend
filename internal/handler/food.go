@@ -8,20 +8,17 @@ import (
 
 	"github.com/MyFirstGo/internal/app"
 	"github.com/MyFirstGo/internal/domain"
-	"github.com/MyFirstGo/internal/service"
 	"github.com/MyFirstGo/internal/store"
 	"github.com/go-chi/chi/v5"
 )
 
 type FoodHandler struct {
-	App     *app.Application
-	service service.FoodService
+	App *app.Application
 }
 
-func NewFoodHandler(app *app.Application, service service.FoodService) *FoodHandler {
+func NewFoodHandler(app *app.Application) *FoodHandler {
 	return &FoodHandler{
-		App:     app,
-		service: service,
+		App: app,
 	}
 }
 
@@ -40,9 +37,9 @@ func (h *FoodHandler) GetFoodsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	foods, err := h.service.GetPaginated(r.Context(), page, size)
+	foods, err := h.App.Service.Foods.GetPaginated(r.Context(), page, size)
 	if err != nil {
-		h.App.ServerErrorResponse(w, r, err) // Log error & kirim 500
+		h.App.ServerErrorResponse(w, r, err)
 		return
 	}
 
@@ -57,7 +54,7 @@ func (h *FoodHandler) GetFoodByIdHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	food, err := h.service.GetByID(r.Context(), id)
+	food, err := h.App.Service.Foods.GetByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			h.App.NotFoundResponse(w, r)
@@ -106,7 +103,7 @@ func (h *FoodHandler) CreateFoodsHandler(w http.ResponseWriter, r *http.Request)
 		})
 	}
 
-	if err := h.service.Create(r.Context(), food); err != nil {
+	if err := h.App.Service.Foods.Create(r.Context(), food); err != nil {
 		h.App.ServerErrorResponse(w, r, err)
 		return
 	}
@@ -139,7 +136,7 @@ func (h *FoodHandler) UpdateFoodsHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	ctx := r.Context()
-	food, err := h.service.GetByID(ctx, id)
+	food, err := h.App.Service.Foods.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			h.App.NotFoundResponse(w, r)
@@ -172,7 +169,7 @@ func (h *FoodHandler) UpdateFoodsHandler(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	if err := h.service.Update(ctx, food); err != nil {
+	if err := h.App.Service.Foods.Update(ctx, food); err != nil {
 		h.App.ServerErrorResponse(w, r, err)
 		return
 	}
@@ -188,7 +185,7 @@ func (h *FoodHandler) DeleteFoodsHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := h.service.Delete(r.Context(), id); err != nil {
+	if err := h.App.Service.Foods.Delete(r.Context(), id); err != nil {
 		h.App.ServerErrorResponse(w, r, err)
 		return
 	}

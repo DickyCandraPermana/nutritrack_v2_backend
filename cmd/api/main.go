@@ -39,20 +39,25 @@ func main() {
 	defer db.Close()
 	log.Println("db connected")
 
+	validator := validator.New()
 	store := store.NewStorage(db)
+	service := service.NewService(store, *validator)
 
 	// 2. Init Shared App State
 	appState := &app.Application{
 		Config:    cfg,
 		Store:     store,
-		Validator: validator.New(),
+		Service:   service,
+		Validator: validator,
 	}
 
 	// 3. Init Handlers (Inject AppState ke sini)
 	healthHandler := handler.NewHealthHandler(appState)
+
 	authHandler := handler.NewAuthHandler(appState)
-	foodService := service.NewFoodService(appState.Store)
-	foodHandler := handler.NewFoodHandler(appState, foodService)
+
+	foodHandler := handler.NewFoodHandler(appState)
+
 	userHandler := handler.NewUserHandler(appState)
 
 	// 4. Mount Routes

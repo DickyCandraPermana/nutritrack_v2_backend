@@ -2,7 +2,7 @@ package handler
 
 import (
 	"errors"
-	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -11,7 +11,6 @@ import (
 	"github.com/MyFirstGo/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type UserHandler struct {
@@ -48,12 +47,13 @@ func (h *UserHandler) GetUserById(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	user, err := h.App.Store.Users.GetByID(ctx, id)
+	user, err := h.App.Service.Users.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			h.App.WriteJSON(w, http.StatusNotFound, "User not found")
 			return
 		}
+
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -66,9 +66,9 @@ func (h *UserHandler) GetUserById(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
-		Username string `json:"username" validate:"required,min=3,max=30"`
-		Email    string `json:"email" validate:"required,email"`
-		Password string `json:"password" validate:"required,min=8"`
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	if err := h.App.ReadJSON(w, r, &payload); err != nil {
@@ -76,33 +76,26 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.App.Validator.Struct(payload); err != nil {
-		var errDetails []string
-		for _, err := range err.(validator.ValidationErrors) {
-			errDetails = append(errDetails, fmt.Sprintf("%s is %s", err.Field(), err.Tag()))
-		}
-
-		h.App.WriteJSON(w, http.StatusUnprocessableEntity, map[string]any{
-			"error":   "Validation failed",
-			"details": errDetails,
-		})
-		return
-	}
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost)
-	if err != nil {
-		http.Error(w, "Gagal memproses password", http.StatusInternalServerError)
-		return
-	}
-
-	user := &domain.User{
+	input := domain.UserCreateInput{
 		Username: payload.Username,
 		Email:    payload.Email,
-		Password: string(hashedPassword),
+		Password: payload.Password,
 	}
 
 	ctx := r.Context()
-	if err := h.App.Store.Users.Create(ctx, user); err != nil {
+	user, err := h.App.Service.Users.Create(ctx, input)
+	if err != nil {
+		var validationErrors validator.ValidationErrors
+		if errors.As(err, &validationErrors) {
+			h.App.ValidationErrorResponse(w, r, err)
+			return
+		}
+		if errors.Is(err, domain.ErrDuplicateEmail) {
+			http.Error(w, "Email sudah digunakan", http.StatusConflict)
+			return
+		}
+
+		log.Printf("Unexpected error creating user: %v", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -114,43 +107,43 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 
 func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "userID")
-	id, _ := strconv.ParseInt(idStr, 10, 64)
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Error parsing url", http.StatusBadRequest)
+		return
+	}
 
 	ctx := r.Context()
 
-	user, err := h.App.Store.Users.GetByID(ctx, id)
+	var payload struct {
+		Username *string `json:"username"`
+		Email    *string `json:"email"`
+	}
+
+	if err := h.App.ReadJSON(w, r, &payload); err != nil {
+		h.App.BadRequestResponse(w, r, err)
+		return
+	}
+
+	input := domain.UserUpdateInput{
+		Email:    payload.Email,
+		Username: payload.Username,
+	}
+	user, err := h.App.Service.Users.Update(ctx, id, input)
 	if err != nil {
+		var validationErrors validator.ValidationErrors
+		if errors.As(err, &validationErrors) {
+			h.App.ValidationErrorResponse(w, r, err)
+			return
+		}
+		if errors.Is(err, domain.ErrDuplicateEmail) {
+			http.Error(w, "Email sudah digunakan", http.StatusConflict)
+			return
+		}
 		if errors.Is(err, store.ErrNotFound) {
 			h.App.WriteJSON(w, http.StatusNotFound, "User not found")
 			return
 		}
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	var payload struct {
-		Username *string `json:"username" validate:"min=3,max=30"`
-		Email    *string `json:"email" validate:"email"`
-	}
-
-	if err := h.App.ReadJSON(w, r, &payload); err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	if err := h.App.Validator.Struct(payload); err != nil {
-		h.App.WriteJSON(w, http.StatusUnprocessableEntity, err.Error())
-		return
-	}
-
-	if payload.Username != nil {
-		user.Username = *payload.Username
-	}
-	if payload.Email != nil {
-		user.Email = *payload.Email
-	}
-
-	if err := h.App.Store.Users.Update(ctx, user); err != nil {
 		http.Error(w, "Internal server Error", http.StatusInternalServerError)
 		return
 	}
@@ -160,21 +153,29 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 
 func (h *UserHandler) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "userID")
-	id, _ := strconv.ParseInt(idStr, 10, 64)
-
-	ctx := r.Context()
-
-	if _, err := h.App.Store.Users.GetByID(ctx, id); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			h.App.WriteJSON(w, http.StatusNotFound, "User not found")
-			return
-		}
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		h.App.BadRequestResponse(w, r, err)
 		return
 	}
 
-	if err := h.App.Store.Users.Delete(ctx, id); err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	ctx := r.Context()
+
+	if err := h.App.Service.Users.Delete(ctx, id); err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			h.App.WriteJSON(w, http.StatusNotFound, map[string]string{
+				"error": "User not found",
+			})
+		case errors.Is(err, domain.ErrCannotDelete):
+			h.App.WriteJSON(w, http.StatusConflict, map[string]string{
+				"error": "User cannot be deleted (has associated data)",
+			})
+		default:
+			log.Printf("Error deleting user %d: %v", id, err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
+
 		return
 	}
 
