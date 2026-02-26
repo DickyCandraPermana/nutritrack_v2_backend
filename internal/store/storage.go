@@ -30,7 +30,10 @@ type Storage struct {
 	Diary interface {
 		GetSummary(context.Context, int64, time.Time) (*domain.DailySummary, error)
 		GetEntries(context.Context, int64, time.Time) ([]*domain.FoodDiary, error)
+		GetUserEntry(context.Context, int64, int64) (*domain.FoodDiary, error)
+		GetEntry(context.Context, int64) (*domain.FoodDiary, error)
 		Create(context.Context, *domain.FoodDiary) error
+		Update(context.Context, *domain.FoodDiary) error
 		Delete(context.Context, int64) error
 	}
 }

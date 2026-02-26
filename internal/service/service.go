@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/MyFirstGo/internal/domain"
 	"github.com/MyFirstGo/internal/store"
@@ -18,10 +19,17 @@ type Service struct {
 		GetByEmail(context.Context, string) (*domain.User, error)
 		Create(context.Context, domain.UserCreateInput) (*domain.UserResponse, error)
 		Update(context.Context, int64, domain.UserUpdateInput) (*domain.UserResponse, error)
+		UpdatePassword(context.Context, int64, string) (*domain.UserResponse, error)
 		Delete(context.Context, int64) error
 	}
 
 	Diary interface {
+		GetSummaryByUserId(context.Context, int64, time.Time) (*domain.DailySummary, error)
+		GetDiaryByDiaryId(context.Context, int64) (*domain.FoodDiary, error)
+		GetDiaryWithUserId(context.Context, int64, int64) (*domain.FoodDiary, error)
+		Create(context.Context, *domain.DiaryCreateInput) (*domain.FoodDiary, error)
+		Update(context.Context, int64, *domain.DiaryUpdateInput) (*domain.FoodDiary, error)
+		Delete(context.Context, int64, int64) error
 	}
 
 	Foods interface {

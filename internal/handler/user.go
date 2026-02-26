@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/MyFirstGo/internal/app"
 	"github.com/MyFirstGo/internal/domain"
@@ -123,8 +124,13 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 	ctx := r.Context()
 
 	var payload struct {
-		Username *string `json:"username"`
-		Email    *string `json:"email"`
+		Username      *string    `json:"username"`
+		Email         *string    `json:"email"`
+		Height        *float64   `json:"height"`
+		Weight        *float64   `json:"weight"`
+		DateOfBirth   *time.Time `json:"date_of_birth"`
+		ActivityLevel *int       `json:"activity_level"`
+		Gender        *string    `json:"gender"`
 	}
 
 	if err := h.App.ReadJSON(w, r, &payload); err != nil {
@@ -133,8 +139,13 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	input := domain.UserUpdateInput{
-		Email:    payload.Email,
-		Username: payload.Username,
+		Email:         payload.Email,
+		Username:      payload.Username,
+		Height:        payload.Height,
+		Weight:        payload.Weight,
+		DateOfBirth:   payload.DateOfBirth,
+		ActivityLevel: payload.ActivityLevel,
+		Gender:        payload.Gender,
 	}
 	user, err := h.App.Service.Users.Update(ctx, id, input)
 	if err != nil {

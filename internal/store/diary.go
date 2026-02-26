@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -90,6 +91,84 @@ func (s *DiaryStore) GetEntries(ctx context.Context, userID int64, date time.Tim
 	}
 
 	return entries, nil
+}
+
+func (s *DiaryStore) GetUserEntry(ctx context.Context, userID, entryID int64) (*domain.FoodDiary, error) {
+	query := `
+	SELECT
+		fd.user_id,
+		fd.food_id,
+		fd.amount_consumed,
+		fd.consumed_at,
+		fd.meal_type,
+		f.name,
+		fd.created_at,
+		fd.updated_at
+	FROM food_diaries fd
+	JOIN foods f ON fd.food_id = f.id
+	WHERE id = $1 AND deleted_at IS NULL AND user_id = $2
+	`
+
+	diary := &domain.FoodDiary{ID: entryID}
+
+	err := s.db.QueryRowContext(ctx, query, entryID, userID).Scan(
+		&diary.UserID,
+		&diary.FoodID,
+		&diary.AmountConsumed,
+		&diary.ConsumedAt,
+		&diary.MealType,
+		&diary.FoodName,
+		&diary.CreatedAt,
+		&diary.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	return diary, nil
+}
+
+func (s *DiaryStore) GetEntry(ctx context.Context, entryID int64) (*domain.FoodDiary, error) {
+	query := `
+	SELECT
+		fd.user_id,
+		fd.food_id,
+		fd.amount_consumed,
+		fd.consumed_at,
+		fd.meal_type,
+		f.name,
+		fd.created_at,
+		fd.updated_at
+	FROM food_diaries fd
+	JOIN foods f ON fd.food_id = f.id
+	WHERE id = $1 AND deleted_at IS NULL
+	`
+
+	diary := &domain.FoodDiary{ID: entryID}
+
+	err := s.db.QueryRowContext(ctx, query, entryID).Scan(
+		&diary.UserID,
+		&diary.FoodID,
+		&diary.AmountConsumed,
+		&diary.ConsumedAt,
+		&diary.MealType,
+		&diary.FoodName,
+		&diary.CreatedAt,
+		&diary.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	return diary, nil
 }
 
 func (s *DiaryStore) Create(ctx context.Context, entry *domain.FoodDiary) error {
