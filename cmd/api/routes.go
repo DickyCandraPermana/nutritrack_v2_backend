@@ -69,7 +69,7 @@ func mountRoutes(
 					r.Get("/", diaryH.GetDiariesHandler)
 					r.Post("/", diaryH.CreateLogHandler)
 
-					r.Route("/{entryID}", func(r chi.Router) {
+					r.Route("/{diaryID}", func(r chi.Router) {
 						r.Get("/", diaryH.GetDiaryHandler)
 						r.Patch("/", diaryH.UpdateLogHandler)
 						r.Delete("/", diaryH.DeleteLogHandler)
