@@ -31,3 +31,24 @@ func UserToUserResponse(user *domain.User) *domain.UserResponse {
 
 	return res
 }
+
+func CreateDiaryInputToFoodDiary(input *domain.DiaryCreateInput) *domain.FoodDiary {
+	return &domain.FoodDiary{
+		UserID:         input.UserID,
+		FoodID:         input.FoodID,
+		AmountConsumed: input.AmountConsumed,
+		ConsumedAt:     input.ConsumedAt,
+		MealType:       input.MealType,
+	}
+}
+
+func UpdateDiaryInputToFoodDiary(input *domain.DiaryUpdateInput) *domain.FoodDiary {
+	res := &domain.FoodDiary{
+		ID:             input.ID,
+		AmountConsumed: *input.AmountConsumed,
+		ConsumedAt:     *input.ConsumedAt,
+		MealType:       *input.MealType,
+	}
+
+	return res
+}

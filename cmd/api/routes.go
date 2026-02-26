@@ -12,12 +12,13 @@ import (
 )
 
 func mountRoutes(
-	appState *app.Application,
+	_ *app.Application,
 	healthH *handler.HealthHandler,
 	authH *handler.AuthHandler,
 	foodH *handler.FoodHandler,
 	userH *handler.UserHandler,
 	profileH *handler.ProfileHandler,
+	diaryH *handler.DiaryHandler,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -71,6 +72,7 @@ func mountRoutes(
 					r.Route("/{entryID}", func(r chi.Router) {
 						r.Get("/", diaryH.GetDiaryHandler)
 						r.Patch("/", diaryH.UpdateLogHandler)
+						r.Delete("/", diaryH.DeleteLogHandler)
 					})
 				})
 			})

@@ -9,9 +9,24 @@ type FoodDiary struct {
 	AmountConsumed float64    `json:"amount_consumed"`
 	ConsumedAt     time.Time  `json:"consumed_at"`
 	MealType       string     `json:"meal_type"`
-	FoodName       string     `json:"food_name,omitempty"`
+	FoodName       *string    `json:"food_name,omitempty"`
 	CreatedAt      *time.Time `json:"created_at"`
 	UpdatedAt      *time.Time `json:"updated_at"`
+}
+
+type DiaryCreateInput struct {
+	UserID         int64     `validate:"required"`
+	FoodID         int64     `validate:"required"`
+	AmountConsumed float64   `validate:"required"`
+	ConsumedAt     time.Time `validate:"required"`
+	MealType       string    `validate:"required"`
+}
+
+type DiaryUpdateInput struct {
+	ID             int64      `validate:"required"`
+	AmountConsumed *float64   `validate:"omitempty"`
+	ConsumedAt     *time.Time `validate:"omitempty"`
+	MealType       *string    `validate:"omitempty"`
 }
 
 // Summary untuk Dashboard

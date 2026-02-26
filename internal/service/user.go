@@ -90,7 +90,6 @@ func (s *UserService) Create(ctx context.Context, payload domain.UserCreateInput
 }
 
 func (s *UserService) Update(ctx context.Context, id int64, payload domain.UserUpdateInput) (*domain.UserResponse, error) {
-
 	if err := s.validator.Struct(payload); err != nil {
 		return nil, err
 	}
@@ -135,6 +134,22 @@ func (s *UserService) Update(ctx context.Context, id int64, payload domain.UserU
 	res := mapper.UserToUserResponse(user)
 
 	return res, nil
+}
+
+func (s *UserService) UpdatePassword(ctx context.Context, id int64, newPassword string) (*domain.UserResponse, error) {
+	user, err := s.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	user.Password = string(hashedPassword)
+
+	return mapper.UserToUserResponse(user), nil
 }
 
 func (s *UserService) Delete(ctx context.Context, id int64) error {
