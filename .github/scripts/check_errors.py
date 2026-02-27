@@ -1,17 +1,17 @@
 import os
 import subprocess
 import requests
-import google.generativeai as genai # type: ignore
+from google import genai # Menggunakan SDK terbaru
 from typing import Optional
 
-# Konfigurasi Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel('gemini-1.5-flash')
+# Inisialisasi Gemini Client
+# Versi terbaru tidak perlu genai.configure, langsung lewat Client
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 def get_git_diff() -> Optional[str]:
     """Mengambil perubahan baris di commit terakhir."""
     try:
-        # Mengambil diff dari commit terakhir
+        # Mengambil diff antara commit sekarang (HEAD) dan sebelumnya (HEAD^)
         diff = subprocess.check_output(["git", "diff", "HEAD^", "HEAD"]).decode("utf-8")
         return diff if diff.strip() else None
     except Exception as e:
@@ -37,7 +37,11 @@ def analyze_with_gemini(diff_text: str) -> str:
     {diff_text}
     """
 
-    response = model.generate_content(prompt)
+    # Menggunakan model gemini-2.0-flash untuk kecepatan dan stabilitas API
+    response = client.models.generate_content(
+        model="gemini-2.0-flash", 
+        contents=prompt
+    )
     return response.text
 
 def create_github_issue(report: str):
@@ -71,14 +75,18 @@ def main():
         print("No significant changes or no previous commit found to compare.")
         return
 
-    print("Analyzing code with Gemini...")
-    analysis = analyze_with_gemini(diff)
+    print("Analyzing code with Gemini 2.0 Flash...")
+    try:
+        analysis = analyze_with_gemini(diff)
 
-    if "CLEAR" in analysis.upper() and len(analysis.strip()) < 10:
-        print("✨ Everything looks good! No issue created.")
-    else:
-        print("⚠️ Issues found! Creating GitHub Issue...")
-        create_github_issue(analysis)
+        # Cek apakah AI memberikan lampu hijau
+        if "CLEAR" in analysis.upper() and len(analysis.strip()) < 15:
+            print("✨ Everything looks good! No issue created.")
+        else:
+            print("⚠️ Issues found! Creating GitHub Issue...")
+            create_github_issue(analysis)
+    except Exception as e:
+        print(f"❌ Gemini API Error: {e}")
 
 if __name__ == "__main__":
     main()
