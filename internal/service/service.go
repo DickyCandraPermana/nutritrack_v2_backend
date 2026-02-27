@@ -35,8 +35,8 @@ type Service struct {
 	Foods interface {
 		GetPaginated(context.Context, int, int) ([]*domain.Food, error)
 		GetByID(context.Context, int64) (*domain.Food, error)
-		Create(context.Context, *domain.Food) error
-		Update(context.Context, *domain.Food) error
+		Create(context.Context, *domain.CreateFoodInput) (*domain.Food, error)
+		Update(context.Context, int64, domain.UpdateFoodInput) (*domain.Food, error)
 		Delete(context.Context, int64) error
 	}
 
@@ -50,7 +50,7 @@ func NewService(store store.Storage, validator validator.Validate) Service {
 		Auth:   &AuthService{store, validator},
 		Users:  &UserService{store, validator},
 		Diary:  &DiaryService{store, validator},
-		Foods:  &foodService{store},
+		Foods:  &foodService{store, validator},
 		Health: &UserHealthService{store, validator},
 	}
 }

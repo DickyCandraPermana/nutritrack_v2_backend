@@ -67,15 +67,15 @@ func (h *FoodHandler) GetFoodByIdHandler(w http.ResponseWriter, r *http.Request)
 
 func (h *FoodHandler) CreateFoodsHandler(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
-		Name        string  `json:"name" validate:"required,max=255"`
+		Name        string  `json:"name"`
 		Description string  `json:"description"`
 		ServingSize float64 `json:"serving_size"`
 		ServingUnit string  `json:"serving_unit"`
 		Nutrients   []struct {
-			ID     int64   `json:"id" validate:"required"`
+			ID     int64   `json:"id"`
 			Name   string  `json:"name"`
 			Unit   string  `json:"unit"`
-			Amount float64 `json:"amount" validate:"required"`
+			Amount float64 `json:"amount"`
 		} `json:"nutrients"`
 	}
 
@@ -84,12 +84,7 @@ func (h *FoodHandler) CreateFoodsHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := h.App.Validator.Struct(payload); err != nil {
-		h.App.ErrorResponse(w, r, http.StatusUnprocessableEntity, err.Error()) // Simpelnya kirim err.Error()
-		return
-	}
-
-	food := &domain.Food{
+	input := &domain.CreateFoodInput{
 		Name:        payload.Name,
 		Description: payload.Description,
 		ServingSize: &payload.ServingSize,
@@ -97,7 +92,12 @@ func (h *FoodHandler) CreateFoodsHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	for _, n := range payload.Nutrients {
-		food.Nutrients = append(food.Nutrients, domain.NutrientAmount{
+		input.Nutrients = append(input.Nutrients, struct {
+			ID     int64   `validate:"required"`
+			Name   string  `validate:"required"`
+			Unit   string  `validate:"required"`
+			Amount float64 `validate:"required"`
+		}{
 			ID:     n.ID,
 			Name:   n.Name,
 			Unit:   n.Unit,
@@ -105,7 +105,8 @@ func (h *FoodHandler) CreateFoodsHandler(w http.ResponseWriter, r *http.Request)
 		})
 	}
 
-	if err := h.App.Service.Foods.Create(r.Context(), food); err != nil {
+	food, err := h.App.Service.Foods.Create(r.Context(), input)
+	if err != nil {
 		h.App.ServerErrorResponse(w, r, err)
 		return
 	}
@@ -116,19 +117,15 @@ func (h *FoodHandler) CreateFoodsHandler(w http.ResponseWriter, r *http.Request)
 func (h *FoodHandler) UpdateFoodsHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "foodID")
 	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		h.App.BadRequestResponse(w, r, err)
-		return
-	}
-
+	// Payload lokal untuk mapping JSON
 	var payload struct {
-		Name        *string  `json:"name" validate:"max=255"`
+		Name        *string  `json:"name"`
 		Description *string  `json:"description"`
 		ServingSize *float64 `json:"serving_size"`
 		ServingUnit *string  `json:"serving_unit"`
 		Nutrients   *[]struct {
-			ID     int64   `json:"id" validate:"required"`
-			Amount float64 `json:"amount" validate:"required"`
+			ID     int64   `json:"id"`
+			Amount float64 `json:"amount"`
 		} `json:"nutrients"`
 	}
 
@@ -137,42 +134,34 @@ func (h *FoodHandler) UpdateFoodsHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	ctx := r.Context()
-	food, err := h.App.Service.Foods.GetByID(ctx, id)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			h.App.NotFoundResponse(w, r)
-			return
-		}
-		h.App.ServerErrorResponse(w, r, err)
-		return
+	// Map payload ke Domain Input
+	input := domain.UpdateFoodInput{
+		Name:        payload.Name,
+		Description: payload.Description,
+		ServingSize: payload.ServingSize,
+		ServingUnit: payload.ServingUnit,
 	}
 
-	if payload.Name != nil {
-		food.Name = *payload.Name
-	}
-	if payload.Description != nil {
-		food.Description = *payload.Description
-	}
-	if payload.ServingSize != nil {
-		food.ServingSize = payload.ServingSize
-	}
-	if payload.ServingUnit != nil {
-		food.ServingUnit = payload.ServingUnit
-	}
 	if payload.Nutrients != nil {
-		food.Nutrients = make([]domain.NutrientAmount, 0, len(*payload.Nutrients))
-
+		nutrients := make([]domain.UpdateNutrientInput, 0, len(*payload.Nutrients))
 		for _, n := range *payload.Nutrients {
-			food.Nutrients = append(food.Nutrients, domain.NutrientAmount{
+			nutrients = append(nutrients, domain.UpdateNutrientInput{
 				ID:     n.ID,
 				Amount: n.Amount,
 			})
 		}
+		input.Nutrients = &nutrients
 	}
 
-	if err := h.App.Service.Foods.Update(ctx, food); err != nil {
-		h.App.ServerErrorResponse(w, r, err)
+	// Panggil Service. Service yang bertanggung jawab ambil data lama & update.
+	food, err := h.App.Service.Foods.Update(r.Context(), id, input)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrNotFound):
+			h.App.NotFoundResponse(w, r)
+		default:
+			h.App.ServerErrorResponse(w, r, err)
+		}
 		return
 	}
 
@@ -181,6 +170,7 @@ func (h *FoodHandler) UpdateFoodsHandler(w http.ResponseWriter, r *http.Request)
 
 func (h *FoodHandler) DeleteFoodsHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "foodID")
+
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		h.App.BadRequestResponse(w, r, err)
