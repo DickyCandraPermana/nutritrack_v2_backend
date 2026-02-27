@@ -33,6 +33,7 @@ type Service struct {
 	}
 
 	Foods interface {
+		Search(context.Context, domain.FoodFilter) ([]*domain.Food, error)
 		GetPaginated(context.Context, int, int) ([]*domain.Food, error)
 		GetByID(context.Context, int64) (*domain.Food, error)
 		Create(context.Context, *domain.CreateFoodInput) (*domain.Food, error)
@@ -50,7 +51,7 @@ func NewService(store store.Storage, validator validator.Validate) Service {
 		Auth:   &AuthService{store, validator},
 		Users:  &UserService{store, validator},
 		Diary:  &DiaryService{store, validator},
-		Foods:  &foodService{store, validator},
+		Foods:  &FoodService{store, validator},
 		Health: &UserHealthService{store, validator},
 	}
 }

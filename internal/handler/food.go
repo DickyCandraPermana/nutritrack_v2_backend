@@ -8,6 +8,7 @@ import (
 
 	"github.com/MyFirstGo/internal/app"
 	"github.com/MyFirstGo/internal/domain"
+	"github.com/MyFirstGo/internal/helper"
 	"github.com/MyFirstGo/internal/store"
 	"github.com/go-chi/chi/v5"
 )
@@ -23,19 +24,17 @@ func NewFoodHandler(app *app.Application) *FoodHandler {
 }
 
 func (h *FoodHandler) GetFoodsHandler(w http.ResponseWriter, r *http.Request) {
-	pageStr := r.URL.Query().Get("page")
-	sizeStr := r.URL.Query().Get("size")
+	q := r.URL.Query()
 
-	page, err := strconv.Atoi(pageStr)
-	if err != nil {
-		page = 1
-	}
-	size, err := strconv.Atoi(sizeStr)
-	if err != nil {
-		size = 10
+	filter := domain.FoodFilter{
+		Query:       q.Get("q"),
+		MinCalories: helper.ReadFloatQuery(r, "min_cal", 0),
+		MaxCalories: helper.ReadFloatQuery(r, "max_cal", 0),
+		Limit:       helper.ReadIntQuery(r, "limit", 10),
+		Offset:      (helper.ReadIntQuery(r, "page", 1) - 1) * 10,
 	}
 
-	foods, err := h.App.Service.Foods.GetPaginated(r.Context(), page, size)
+	foods, err := h.App.Service.Foods.Search(r.Context(), filter)
 	if err != nil {
 		h.App.ServerErrorResponse(w, r, err)
 		return
@@ -117,6 +116,10 @@ func (h *FoodHandler) CreateFoodsHandler(w http.ResponseWriter, r *http.Request)
 func (h *FoodHandler) UpdateFoodsHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "foodID")
 	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil { // Reintroduce this check
+		h.App.BadRequestResponse(w, r, err)
+		return
+	}
 	// Payload lokal untuk mapping JSON
 	var payload struct {
 		Name        *string  `json:"name"`

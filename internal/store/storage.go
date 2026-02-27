@@ -20,6 +20,7 @@ type Storage struct {
 	}
 
 	Foods interface {
+		Search(context.Context, domain.FoodFilter) ([]*domain.Food, error)
 		GetPaginated(context.Context, int, int) ([]*domain.Food, error)
 		GetByID(context.Context, int64) (*domain.Food, error)
 		Create(context.Context, *domain.Food) error

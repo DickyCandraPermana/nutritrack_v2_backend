@@ -22,7 +22,7 @@ func (s *FoodStore) Search(ctx context.Context, f domain.FoodFilter) ([]*domain.
 
 	// Base Query
 	query.WriteString(`
-        SELECT f.id, f.name, f.serving_size, f.category
+        SELECT f.id, f.name, f.description, f.serving_size, f.serving_unit
         FROM foods f
         WHERE f.deleted_at IS NULL
     `)
