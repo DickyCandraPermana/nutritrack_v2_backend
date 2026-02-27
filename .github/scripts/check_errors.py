@@ -39,7 +39,7 @@ def analyze_with_gemini(diff_text: str) -> str:
 
     # Menggunakan model gemini-2.0-flash untuk kecepatan dan stabilitas API
     response = client.models.generate_content(
-        model="gemini-2.0-flash", 
+        model="gemini-2.5-flash", 
         contents=prompt
     )
     return response.text
