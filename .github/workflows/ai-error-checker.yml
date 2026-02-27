@@ -20,11 +20,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11' # Best practice 2026: Gunakan 3.11+
 
       - name: Install dependencies
-        # Kita pakai library google-generativeai
-        run: pip install google-generativeai requests
+        # Gunakan google-genai (SDK terbaru)
+        run: pip install google-genai requests
 
       - name: Run Gemini Checker Script
         env:
