@@ -52,3 +52,14 @@ func UpdateDiaryInputToFoodDiary(input *domain.DiaryUpdateInput) *domain.FoodDia
 
 	return res
 }
+
+func CreateFoodInputToFood(input *domain.CreateFoodInput) *domain.Food {
+	food := &domain.Food{
+		Name:        input.Name,
+		Description: input.Description,
+		ServingSize: input.ServingSize,
+		ServingUnit: input.ServingUnit,
+	}
+
+	return food
+}

@@ -34,7 +34,7 @@ func (s *DiaryStore) GetSummary(ctx context.Context, userID int64, date time.Tim
 		Entries: []domain.FoodDiary{},
 	}
 
-	err := s.db.QueryRowContext(ctx, query, userID, date).Scan(
+	err := s.db.QueryRowContext(ctx, query, userID, date.Format("2006-01-02")).Scan(
 		&summary.TotalCalories,
 		&summary.TotalProtein,
 		&summary.TotalCarbs,
@@ -65,7 +65,7 @@ func (s *DiaryStore) GetEntries(ctx context.Context, userID int64, date time.Tim
           AND fd.deleted_at IS NULL
     `
 
-	rows, err := s.db.QueryContext(ctx, query, userID, date)
+	rows, err := s.db.QueryContext(ctx, query, userID, date.Format("2006-01-02"))
 	if err != nil {
 		return nil, err
 	}

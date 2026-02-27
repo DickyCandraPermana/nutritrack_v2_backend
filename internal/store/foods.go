@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/MyFirstGo/internal/domain"
@@ -11,6 +13,108 @@ import (
 
 type FoodStore struct {
 	db *sql.DB
+}
+
+func (s *FoodStore) Search(ctx context.Context, f domain.FoodFilter) ([]*domain.Food, error) {
+	var query strings.Builder
+	var args []any
+	argIdx := 1
+
+	// Base Query
+	query.WriteString(`
+        SELECT f.id, f.name, f.serving_size, f.category
+        FROM foods f
+        WHERE f.deleted_at IS NULL
+    `)
+
+	// 1. Filter Nama (Search)
+	if f.Query != "" {
+		fmt.Fprintf(&query, " AND f.name ILIKE $%d", argIdx)
+		args = append(args, "%"+f.Query+"%")
+		argIdx++
+	}
+
+	// 3. Filter Kalori (Butuh Subquery atau Join)
+	if f.MaxCalories > 0 {
+		query.WriteString(fmt.Sprintf(`
+            AND f.id IN (
+                SELECT fn.food_id FROM food_nutrients fn
+                JOIN nutrients n ON fn.nutrient_id = n.id
+                WHERE n.name = 'Caloric Value' AND fn.amount <= $%d
+            )`, argIdx))
+		args = append(args, f.MaxCalories)
+		argIdx++
+	}
+
+	if f.MinCalories > 0 {
+		query.WriteString(fmt.Sprintf(`
+            AND f.id IN (
+                SELECT fn.food_id FROM food_nutrients fn
+                JOIN nutrients n ON fn.nutrient_id = n.id
+                WHERE n.name = 'Caloric Value' AND fn.amount >= $%d
+            )`, argIdx))
+		args = append(args, f.MinCalories)
+		argIdx++
+	}
+
+	// 4. Sort & Pagination
+	fmt.Fprintf(&query, " ORDER BY f.name ASC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
+	args = append(args, f.Limit, f.Offset)
+
+	// Eksekusi
+	rows, err := s.db.QueryContext(ctx, query.String(), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var foods []*domain.Food
+	var foodIDs []int64
+	foodMap := make(map[int64]*domain.Food)
+
+	for rows.Next() {
+		f := &domain.Food{Nutrients: []domain.NutrientAmount{}}
+		var description sql.NullString
+		if err := rows.Scan(&f.ID, &f.Name, &description, &f.ServingSize, &f.ServingUnit); err != nil {
+			return nil, err
+		}
+		f.Description = description.String
+
+		foods = append(foods, f)
+		foodIDs = append(foodIDs, f.ID)
+		foodMap[f.ID] = f
+	}
+
+	if len(foodIDs) == 0 {
+		return foods, nil
+	}
+
+	queryNutrient := `
+	SELECT fn.food_id, n.id, n.name, n.unit, fn.amount
+	FROM food_nutrients fn
+	JOIN nutrients n ON fn.nutrient_id = n.id
+	WHERE fn.food_id = ANY($1)
+	`
+
+	nutRows, err := s.db.QueryContext(ctx, queryNutrient, pq.Array(foodIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer nutRows.Close()
+
+	for nutRows.Next() {
+		var foodID int64
+		var na domain.NutrientAmount
+		if err := nutRows.Scan(&foodID, &na.ID, &na.Name, &na.Unit, &na.Amount); err != nil {
+			return nil, err
+		}
+
+		if f, ok := foodMap[foodID]; ok {
+			f.Nutrients = append(f.Nutrients, na)
+		}
+	}
+
+	return foods, nil
 }
 
 func (s *FoodStore) GetPaginated(ctx context.Context, limit, offset int) ([]*domain.Food, error) {
@@ -157,8 +261,6 @@ func (s *FoodStore) Create(ctx context.Context, food *domain.Food) error {
 	}
 
 	defer tx.Rollback()
-
-	
 
 	queryFood := `
 			INSERT INTO foods (name, description, serving_size, serving_unit)
