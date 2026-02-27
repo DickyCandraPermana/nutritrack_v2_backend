@@ -34,7 +34,7 @@ func (s *DiaryStore) GetSummary(ctx context.Context, userID int64, date time.Tim
 		Entries: []domain.FoodDiary{},
 	}
 
-	err := s.db.QueryRowContext(ctx, query, userID, date.Format("2006-01-02")).Scan(
+	err := s.db.QueryRowContext(ctx, query, userID, date).Scan(
 		&summary.TotalCalories,
 		&summary.TotalProtein,
 		&summary.TotalCarbs,
@@ -65,7 +65,7 @@ func (s *DiaryStore) GetEntries(ctx context.Context, userID int64, date time.Tim
           AND fd.deleted_at IS NULL
     `
 
-	rows, err := s.db.QueryContext(ctx, query, userID, date.Format("2006-01-02"))
+	rows, err := s.db.QueryContext(ctx, query, userID, date)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (s *DiaryStore) GetUserEntry(ctx context.Context, userID, entryID int64) (*
 		fd.updated_at
 	FROM food_diaries fd
 	JOIN foods f ON fd.food_id = f.id
-	WHERE id = $1 AND deleted_at IS NULL AND user_id = $2
+	WHERE fd.id = $1 AND fd.deleted_at IS NULL AND fd.user_id = $2
 	`
 
 	diary := &domain.FoodDiary{ID: entryID}
@@ -145,7 +145,7 @@ func (s *DiaryStore) GetEntry(ctx context.Context, entryID int64) (*domain.FoodD
 		fd.updated_at
 	FROM food_diaries fd
 	JOIN foods f ON fd.food_id = f.id
-	WHERE id = $1 AND deleted_at IS NULL
+	WHERE fd.id = $1 AND fd.deleted_at IS NULL
 	`
 
 	diary := &domain.FoodDiary{ID: entryID}

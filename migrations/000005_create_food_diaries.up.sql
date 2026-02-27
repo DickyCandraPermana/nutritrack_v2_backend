@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS food_diaries (
     consumed_at timestamp(0) with time zone NOT NULL DEFAULT NOW(),
     -- Metadata tambahan
     meal_type varchar(20), -- 'breakfast', 'lunch', 'dinner', 'snack'
-    created_at timestamp(0) with time zone NOT NULL DEFAULT NOW()
-    updated_at timestamp(0) with time zone NOT NULL DEFAULT NOW()
+    created_at timestamp(0) with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp(0) with time zone NOT NULL DEFAULT NOW(),
     deleted_at timestamp(0) with time zone
 );
 
