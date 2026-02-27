@@ -19,6 +19,7 @@ func mountRoutes(
 	userH *handler.UserHandler,
 	profileH *handler.ProfileHandler,
 	diaryH *handler.DiaryHandler,
+	userHealthH *handler.UserHealthHandler,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -64,6 +65,8 @@ func mountRoutes(
 				r.Get("/", profileH.GetProfileHandler)
 				r.Patch("/", profileH.UpdateProfileHandler)
 				r.Patch("/password", profileH.UpdatePasswordHandler)
+
+				r.Get("/tdee", userHealthH.GetHealthSummary)
 
 				r.Route("/diaries", func(r chi.Router) {
 					r.Get("/", diaryH.GetDiariesHandler)

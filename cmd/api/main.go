@@ -64,8 +64,10 @@ func main() {
 
 	diaryHandler := handler.NewDiaryHandler(appState)
 
+	userHealthHandler := handler.NewUserHealthHandler(appState)
+
 	// 4. Mount Routes
-	mux := mountRoutes(appState, healthHandler, authHandler, foodHandler, userHandler, profileHandler, diaryHandler)
+	mux := mountRoutes(appState, healthHandler, authHandler, foodHandler, userHandler, profileHandler, diaryHandler, userHealthHandler)
 
 	// 5. Run Server
 	runServer(appState, mux)

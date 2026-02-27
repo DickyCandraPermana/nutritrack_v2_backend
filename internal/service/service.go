@@ -39,13 +39,18 @@ type Service struct {
 		Update(context.Context, *domain.Food) error
 		Delete(context.Context, int64) error
 	}
+
+	Health interface {
+		GetUserHealthSummary(context.Context, int64) (*domain.UserHealthSum, error)
+	}
 }
 
 func NewService(store store.Storage, validator validator.Validate) Service {
 	return Service{
-		Auth:  &AuthService{store, validator},
-		Users: &UserService{store, validator},
-		Diary: &DiaryService{store, validator},
-		Foods: &foodService{store},
+		Auth:   &AuthService{store, validator},
+		Users:  &UserService{store, validator},
+		Diary:  &DiaryService{store, validator},
+		Foods:  &foodService{store},
+		Health: &UserHealthService{store, validator},
 	}
 }

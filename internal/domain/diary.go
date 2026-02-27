@@ -37,3 +37,12 @@ type DailySummary struct {
 	TotalFat      float64     `json:"total_fat"`
 	Entries       []FoodDiary `json:"entries"`
 }
+
+type UserHealthSum struct {
+	Tdee          float64 `json:"tdee"`
+	Bmi           string  `json:"bmi"`
+	Bmr           float64 `json:"bmr"`
+	ProteinNeeded float64 `json:"protein_needed"`
+	CarbsNeeded   float64 `json:"carbs_needed"`
+	FatNeeded     float64 `json:"fat_needed"`
+}
