@@ -26,5 +26,5 @@ func (h UserHealthHandler) GetHealthSummary(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	h.App.WriteJSON(w, http.StatusOK, sum)
+	h.App.WriteJSON(w, http.StatusOK, sum, nil)
 }

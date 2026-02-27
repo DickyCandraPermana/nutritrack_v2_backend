@@ -34,7 +34,7 @@ func (h *ProfileHandler) GetProfileHandler(w http.ResponseWriter, r *http.Reques
 	h.App.WriteJSON(w, http.StatusOK, map[string]any{
 		"user":    user,
 		"summary": summary,
-	})
+	}, nil)
 }
 
 func (h *ProfileHandler) UpdateProfileHandler(w http.ResponseWriter, r *http.Request) {
@@ -79,14 +79,14 @@ func (h *ProfileHandler) UpdateProfileHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 		if errors.Is(err, store.ErrNotFound) {
-			h.App.WriteJSON(w, http.StatusNotFound, "User not found")
+			h.App.NotFoundResponse(w, r)
 			return
 		}
 		http.Error(w, "Internal server Error", http.StatusInternalServerError)
 		return
 	}
 
-	h.App.WriteJSON(w, http.StatusOK, user)
+	h.App.WriteJSON(w, http.StatusOK, user, nil)
 }
 
 func (h *ProfileHandler) UpdatePasswordHandler(w http.ResponseWriter, r *http.Request) {
@@ -104,12 +104,12 @@ func (h *ProfileHandler) UpdatePasswordHandler(w http.ResponseWriter, r *http.Re
 	user, err := h.App.Service.Users.UpdatePassword(r.Context(), userID, payload.Password)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			h.App.WriteJSON(w, http.StatusNotFound, "User not found")
+			h.App.NotFoundResponse(w, r)
 			return
 		}
 		http.Error(w, "Internal server Error", http.StatusInternalServerError)
 		return
 	}
 
-	h.App.WriteJSON(w, http.StatusOK, user)
+	h.App.WriteJSON(w, http.StatusOK, user, nil)
 }

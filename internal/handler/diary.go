@@ -43,7 +43,7 @@ func (h *DiaryHandler) GetDiariesHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	h.App.WriteJSON(w, http.StatusOK, entries)
+	h.App.WriteJSON(w, http.StatusOK, entries, nil)
 }
 
 func (h *DiaryHandler) GetDiaryHandler(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +62,7 @@ func (h *DiaryHandler) GetDiaryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.App.WriteJSON(w, http.StatusOK, diary)
+	h.App.WriteJSON(w, http.StatusOK, diary, nil)
 }
 
 func (h *DiaryHandler) CreateLogHandler(w http.ResponseWriter, r *http.Request) {
@@ -120,7 +120,7 @@ func (h *DiaryHandler) CreateLogHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	h.App.WriteJSON(w, http.StatusCreated, diary)
+	h.App.WriteJSON(w, http.StatusCreated, diary, nil)
 }
 
 func (h *DiaryHandler) UpdateLogHandler(w http.ResponseWriter, r *http.Request) {
@@ -192,7 +192,7 @@ func (h *DiaryHandler) UpdateLogHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	h.App.WriteJSON(w, http.StatusCreated, diary)
+	h.App.WriteJSON(w, http.StatusCreated, diary, nil)
 }
 
 func (h *DiaryHandler) DeleteLogHandler(w http.ResponseWriter, r *http.Request) {
@@ -210,6 +210,6 @@ func (h *DiaryHandler) DeleteLogHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	h.App.WriteJSON(w, http.StatusNoContent, nil)
+	h.App.WriteJSON(w, http.StatusNoContent, nil, nil)
 
 }

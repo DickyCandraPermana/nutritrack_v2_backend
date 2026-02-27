@@ -16,6 +16,7 @@ type Storage struct {
 		GetByEmail(context.Context, string) (*domain.User, error)
 		Create(context.Context, *domain.User) error
 		Update(context.Context, *domain.User) error
+		UpdateAvatar(context.Context, int64, string) error
 		Delete(context.Context, int64) error
 	}
 

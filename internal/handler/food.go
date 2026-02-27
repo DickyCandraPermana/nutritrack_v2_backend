@@ -40,7 +40,7 @@ func (h *FoodHandler) GetFoodsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.App.WriteJSON(w, http.StatusOK, foods)
+	h.App.WriteJSON(w, http.StatusOK, foods, nil)
 }
 
 func (h *FoodHandler) GetFoodByIdHandler(w http.ResponseWriter, r *http.Request) {
@@ -61,7 +61,7 @@ func (h *FoodHandler) GetFoodByIdHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	h.App.WriteJSON(w, http.StatusOK, food)
+	h.App.WriteJSON(w, http.StatusOK, food, nil)
 }
 
 func (h *FoodHandler) CreateFoodsHandler(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +110,7 @@ func (h *FoodHandler) CreateFoodsHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	h.App.WriteJSON(w, http.StatusCreated, food)
+	h.App.WriteJSON(w, http.StatusCreated, food, nil)
 }
 
 func (h *FoodHandler) UpdateFoodsHandler(w http.ResponseWriter, r *http.Request) {
@@ -168,7 +168,7 @@ func (h *FoodHandler) UpdateFoodsHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	h.App.WriteJSON(w, http.StatusOK, food)
+	h.App.WriteJSON(w, http.StatusOK, food, nil)
 }
 
 func (h *FoodHandler) DeleteFoodsHandler(w http.ResponseWriter, r *http.Request) {

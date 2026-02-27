@@ -25,7 +25,7 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.App.ReadJSON(w, r, &payload); err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
+		h.App.BadRequestResponse(w, r, err)
 		return
 	}
 
@@ -40,9 +40,9 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
-			h.App.WriteJSON(w, http.StatusUnauthorized, "email atau password salah")
+			h.App.WriteJSON(w, http.StatusUnauthorized, "email atau password salah", nil)
 		case errors.Is(err, domain.ErrInvalidCredentials):
-			h.App.WriteJSON(w, http.StatusUnauthorized, "email atau password salah")
+			h.App.WriteJSON(w, http.StatusUnauthorized, "email atau password salah", nil)
 		default:
 			log.Printf("Database error in LoginHandler: %v", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -50,5 +50,5 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Success response
-	h.App.WriteJSON(w, http.StatusOK, res)
+	h.App.WriteJSON(w, http.StatusOK, res, nil)
 }

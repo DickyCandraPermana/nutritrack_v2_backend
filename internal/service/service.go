@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/MyFirstGo/internal/domain"
@@ -20,6 +21,7 @@ type Service struct {
 		Create(context.Context, domain.UserCreateInput) (*domain.UserResponse, error)
 		Update(context.Context, int64, domain.UserUpdateInput) (*domain.UserResponse, error)
 		UpdatePassword(context.Context, int64, string) (*domain.UserResponse, error)
+		UpdateAvatar(context.Context, int64, io.Reader) (string, error)
 		Delete(context.Context, int64) error
 	}
 
@@ -46,10 +48,10 @@ type Service struct {
 	}
 }
 
-func NewService(store store.Storage, validator validator.Validate) Service {
+func NewService(store store.Storage, validator validator.Validate, storage domain.FileStorage) Service {
 	return Service{
 		Auth:   &AuthService{store, validator},
-		Users:  &UserService{store, validator},
+		Users:  &UserService{store, validator, storage},
 		Diary:  &DiaryService{store, validator},
 		Foods:  &FoodService{store, validator},
 		Health: &UserHealthService{store, validator},
