@@ -11,12 +11,12 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-type foodService struct {
+type FoodService struct {
 	store     store.Storage
 	validator validator.Validate
 }
 
-func (s *foodService) validateFoodNutrients(food domain.Food) error {
+func (s *FoodService) validateFoodNutrients(food domain.Food) error {
 	servingSize, servingUnit := 100.00, "g"
 
 	if food.ServingSize != nil {
@@ -50,7 +50,11 @@ func (s *foodService) validateFoodNutrients(food domain.Food) error {
 	return nil
 }
 
-func (s *foodService) GetPaginated(ctx context.Context, page, size int) ([]*domain.Food, error) {
+func (s *FoodService) Search(ctx context.Context, filter domain.FoodFilter) ([]*domain.Food, error) {
+	return s.store.Foods.Search(ctx, filter)
+}
+
+func (s *FoodService) GetPaginated(ctx context.Context, page, size int) ([]*domain.Food, error) {
 
 	if page < 1 {
 		page = 1
@@ -65,11 +69,11 @@ func (s *foodService) GetPaginated(ctx context.Context, page, size int) ([]*doma
 	return s.store.Foods.GetPaginated(ctx, size, offset)
 }
 
-func (s *foodService) GetByID(ctx context.Context, id int64) (*domain.Food, error) {
+func (s *FoodService) GetByID(ctx context.Context, id int64) (*domain.Food, error) {
 	return s.store.Foods.GetByID(ctx, id)
 }
 
-func (s *foodService) Create(ctx context.Context, input *domain.CreateFoodInput) (*domain.Food, error) {
+func (s *FoodService) Create(ctx context.Context, input *domain.CreateFoodInput) (*domain.Food, error) {
 
 	if err := s.validator.Struct(input); err != nil {
 		return nil, err
@@ -77,11 +81,11 @@ func (s *foodService) Create(ctx context.Context, input *domain.CreateFoodInput)
 
 	servingSize, servingUnit := float64(100), "g"
 
-	if input.ServingSize != nil {
+	if input.ServingSize == nil {
 		input.ServingSize = &servingSize
 	}
 
-	if input.ServingUnit != nil {
+	if input.ServingUnit == nil {
 		input.ServingUnit = &servingUnit
 	}
 
@@ -105,7 +109,7 @@ func (s *foodService) Create(ctx context.Context, input *domain.CreateFoodInput)
 	return food, nil
 }
 
-func (s *foodService) Update(ctx context.Context, id int64, input domain.UpdateFoodInput) (*domain.Food, error) {
+func (s *FoodService) Update(ctx context.Context, id int64, input domain.UpdateFoodInput) (*domain.Food, error) {
 	// 1. Ambil data asli dari DB
 	food, err := s.store.Foods.GetByID(ctx, id)
 	if err != nil {
@@ -151,6 +155,6 @@ func (s *foodService) Update(ctx context.Context, id int64, input domain.UpdateF
 	return food, nil
 }
 
-func (s *foodService) Delete(ctx context.Context, id int64) error {
+func (s *FoodService) Delete(ctx context.Context, id int64) error {
 	return s.store.Foods.Delete(ctx, id)
 }

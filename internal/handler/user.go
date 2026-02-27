@@ -9,6 +9,7 @@ import (
 
 	"github.com/MyFirstGo/internal/app"
 	"github.com/MyFirstGo/internal/domain"
+	"github.com/MyFirstGo/internal/middleware"
 	"github.com/MyFirstGo/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
@@ -42,14 +43,14 @@ func (h *UserHandler) GetUsersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.App.WriteJSON(w, http.StatusOK, users)
+	h.App.WriteJSON(w, http.StatusOK, users, nil)
 }
 
 func (h *UserHandler) GetUserByIdHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "userID")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		h.App.WriteJSON(w, http.StatusBadRequest, "Invalid User ID format")
+		h.App.BadRequestResponse(w, r, err)
 		return
 	}
 
@@ -58,7 +59,7 @@ func (h *UserHandler) GetUserByIdHandler(w http.ResponseWriter, r *http.Request)
 	user, err := h.App.Service.Users.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			h.App.WriteJSON(w, http.StatusNotFound, "User not found")
+			h.App.BadRequestResponse(w, r, err)
 			return
 		}
 
@@ -66,7 +67,7 @@ func (h *UserHandler) GetUserByIdHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := h.App.WriteJSON(w, http.StatusOK, user); err != nil {
+	if err := h.App.WriteJSON(w, http.StatusOK, user, nil); err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -108,9 +109,34 @@ func (h *UserHandler) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.App.WriteJSON(w, http.StatusCreated, user); err != nil {
+	if err := h.App.WriteJSON(w, http.StatusCreated, user, nil); err != nil {
 		http.Error(w, "Error writing response", http.StatusInternalServerError)
 	}
+}
+
+func (h *UserHandler) UpdateAvatarHandler(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(middleware.UserIDKey).(int64)
+
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20)
+	if err := r.ParseMultipartForm(5 << 20); err != nil {
+		h.App.BadRequestResponse(w, r, errors.New("file too large"))
+		return
+	}
+
+	file, _, err := r.FormFile("avatar")
+	if err != nil {
+		h.App.BadRequestResponse(w, r, err)
+		return
+	}
+	defer file.Close()
+
+	path, err := h.App.Service.Users.UpdateAvatar(r.Context(), userID, file)
+	if err != nil {
+		h.App.ServerErrorResponse(w, r, err)
+		return
+	}
+
+	h.App.WriteJSON(w, http.StatusOK, map[string]string{"url": path}, nil)
 }
 
 func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -159,14 +185,14 @@ func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		if errors.Is(err, store.ErrNotFound) {
-			h.App.WriteJSON(w, http.StatusNotFound, "User not found")
+			h.App.BadRequestResponse(w, r, err)
 			return
 		}
 		http.Error(w, "Internal server Error", http.StatusInternalServerError)
 		return
 	}
 
-	h.App.WriteJSON(w, http.StatusOK, user)
+	h.App.WriteJSON(w, http.StatusOK, user, nil)
 }
 
 func (h *UserHandler) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -182,13 +208,11 @@ func (h *UserHandler) DeleteUserHandler(w http.ResponseWriter, r *http.Request) 
 	if err := h.App.Service.Users.Delete(ctx, id); err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
-			h.App.WriteJSON(w, http.StatusNotFound, map[string]string{
-				"error": "User not found",
-			})
+			h.App.NotFoundResponse(w, r)
 		case errors.Is(err, domain.ErrCannotDelete):
 			h.App.WriteJSON(w, http.StatusConflict, map[string]string{
 				"error": "User cannot be deleted (has associated data)",
-			})
+			}, nil)
 		default:
 			log.Printf("Error deleting user %d: %v", id, err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)

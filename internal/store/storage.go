@@ -16,10 +16,12 @@ type Storage struct {
 		GetByEmail(context.Context, string) (*domain.User, error)
 		Create(context.Context, *domain.User) error
 		Update(context.Context, *domain.User) error
+		UpdateAvatar(context.Context, int64, string) error
 		Delete(context.Context, int64) error
 	}
 
 	Foods interface {
+		Search(context.Context, domain.FoodFilter) ([]*domain.Food, error)
 		GetPaginated(context.Context, int, int) ([]*domain.Food, error)
 		GetByID(context.Context, int64) (*domain.Food, error)
 		Create(context.Context, *domain.Food) error

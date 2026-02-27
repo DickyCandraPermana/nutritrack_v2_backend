@@ -278,6 +278,34 @@ func (s *UserStore) Update(ctx context.Context, user *domain.User) error {
 	return nil
 }
 
+func (s *UserStore) UpdateAvatar(ctx context.Context, userID int64, objectName string) error {
+	query := `
+        UPDATE users
+        SET
+					avatar = $2,
+					updated_at = NOW()
+        WHERE id = $1
+    `
+	res, err := s.db.ExecContext(ctx, query,
+		userID,
+		objectName,
+	)
+
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rows == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
 func (s *UserStore) Delete(ctx context.Context, userID int64) error {
 	query := `
 				UPDATE users

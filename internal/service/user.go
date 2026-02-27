@@ -1,14 +1,19 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"image/jpeg"
+	"io"
+	"time"
 
 	"github.com/MyFirstGo/internal/domain"
 	"github.com/MyFirstGo/internal/helper"
 	"github.com/MyFirstGo/internal/mapper"
 	"github.com/MyFirstGo/internal/store"
+	"github.com/disintegration/imaging"
 	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -16,6 +21,7 @@ import (
 type UserService struct {
 	store     store.Storage
 	validator validator.Validate
+	storage   domain.FileStorage
 }
 
 func (s *UserService) GetPaginated(ctx context.Context, size, page int) ([]*domain.User, error) {
@@ -150,6 +156,34 @@ func (s *UserService) UpdatePassword(ctx context.Context, id int64, newPassword 
 	user.Password = string(hashedPassword)
 
 	return mapper.UserToUserResponse(user), nil
+}
+
+func (s *UserService) UpdateAvatar(ctx context.Context, userID int64, file io.Reader) (string, error) {
+	src, err := imaging.Decode(file)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode image: %w", err)
+	}
+
+	dst := imaging.Fill(src, 200, 200, imaging.Center, imaging.Lanczos)
+
+	buf := new(bytes.Buffer)
+	err = jpeg.Encode(buf, dst, &jpeg.Options{Quality: 85})
+	if err != nil {
+		return "", fmt.Errorf("failed to encode image: %w", err)
+	}
+
+	fileName := fmt.Sprintf("avatars/%d-%d.jpg", userID, time.Now().Unix())
+
+	objectName, err := s.storage.Upload(ctx, fileName, buf, int64(buf.Len()), "image/jpg")
+	if err != nil {
+		return "", err
+	}
+
+	if err := s.store.Users.UpdateAvatar(ctx, userID, objectName); err != nil {
+		return "", err
+	}
+
+	return objectName, nil
 }
 
 func (s *UserService) Delete(ctx context.Context, id int64) error {

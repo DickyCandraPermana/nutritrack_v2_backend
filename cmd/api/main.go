@@ -23,6 +23,11 @@ func main() {
 			MaxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 30),
 			MaxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
 		},
+		MinioEndpoint:  env.GetString("MINIO_ADDR", "localhost:9000"),
+		MinioAccessKey: env.GetString("MINIO_ACCESS_KEY", "minioadmin"),
+		MinioSecretKey: env.GetString("MINIO_SECRET_KEY", "minioadminpassword"),
+		MinioUseSSL:    false,
+		MinioBucket:    env.GetString("MINIO_BUCKET", "avatars"),
 	}
 
 	db, err := db.New(
@@ -36,19 +41,26 @@ func main() {
 		log.Panic(err)
 	}
 
+	minioClient, err := app.InitMinio(cfg)
+	if err != nil {
+		log.Fatalf("failed to connect to minio: %v", err)
+	}
+
 	defer db.Close()
 	log.Println("db connected")
 
 	validator := validator.New()
-	store := store.NewStorage(db)
-	service := service.NewService(store, *validator)
+	dbStore := store.NewStorage(db)
+	minioStore := store.NewMinioStore(minioClient, "avatars")
+	service := service.NewService(dbStore, *validator, minioStore)
 
 	// 2. Init Shared App State
 	appState := &app.Application{
 		Config:    cfg,
-		Store:     store,
+		Store:     dbStore,
 		Service:   service,
 		Validator: validator,
+		MinIO:     minioClient,
 	}
 
 	// 3. Init Handlers (Inject AppState ke sini)

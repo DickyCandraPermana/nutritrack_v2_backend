@@ -65,6 +65,7 @@ func mountRoutes(
 				r.Get("/", profileH.GetProfileHandler)
 				r.Patch("/", profileH.UpdateProfileHandler)
 				r.Patch("/password", profileH.UpdatePasswordHandler)
+				r.Patch("/avatar", userH.UpdateAvatarHandler)
 
 				r.Get("/tdee", userHealthH.GetHealthSummary)
 

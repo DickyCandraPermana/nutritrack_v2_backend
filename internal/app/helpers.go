@@ -4,16 +4,41 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
 )
 
-func (app *Application) WriteJSON(w http.ResponseWriter, status int, data any) error {
+func (app *Application) WriteJSON(w http.ResponseWriter, status int, data any, headers http.Header) error {
+	js, err := json.Marshal(data) // Marshal dulu untuk cek error sebelum kirim status
+	if err != nil {
+		return err
+	}
+
+	for key, value := range headers {
+		w.Header()[key] = value
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	return json.NewEncoder(w).Encode(data)
+	w.Write(js)
+	return nil
+}
+
+func (app *Application) NotFoundResponse(w http.ResponseWriter, r *http.Request) {
+
+	message := "the requested resource could not be found"
+
+	app.ErrorResponse(w, r, http.StatusNotFound, message)
+
+}
+
+func (app *Application) BadRequestResponse(w http.ResponseWriter, r *http.Request, err error) {
+
+	app.ErrorResponse(w, r, http.StatusBadRequest, "invalid request")
+
 }
 
 func (app *Application) ReadJSON(w http.ResponseWriter, r *http.Request, data any) error {
@@ -21,54 +46,57 @@ func (app *Application) ReadJSON(w http.ResponseWriter, r *http.Request, data an
 	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
 
 	decoder := json.NewDecoder(r.Body)
-	return decoder.Decode(data)
-}
+	// Gagalkan jika ada field yang tidak dikenal di JSON
+	decoder.DisallowUnknownFields()
 
-func (app *Application) ErrorResponse(w http.ResponseWriter, _ *http.Request, status int, message any) {
-	env := map[string]any{"error": message}
-
-	err := app.WriteJSON(w, status, env)
+	err := decoder.Decode(data)
 	if err != nil {
-		log.Printf("error writing json: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		return err
 	}
+
+	// Pastikan hanya ada satu nilai JSON di body
+	err = decoder.Decode(&struct{}{})
+	if !errors.Is(err, io.EOF) {
+		return errors.New("body must only contain a single JSON value")
+	}
+
+	return nil
 }
 
 func (app *Application) ValidationErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
 	var validationErrors validator.ValidationErrors
-
-	// Gunakan errors.As, bukan type assertion langsung
 	if errors.As(err, &validationErrors) {
-		errDetails := make([]string, 0, len(validationErrors))
+		// Gunakan map agar frontend gampang memetakan error ke input field
+		errDetails := make(map[string]string)
 		for _, e := range validationErrors {
-			errDetails = append(errDetails, fmt.Sprintf("%s: %s", e.Field(), e.Tag()))
+			errDetails[e.Field()] = fmt.Sprintf("failed on the '%s' tag", e.Tag())
 		}
 
-		app.WriteJSON(w, http.StatusUnprocessableEntity, map[string]any{
-			"error":   "Validation failed",
-			"details": errDetails,
-		})
+		app.ErrorResponse(w, r, http.StatusUnprocessableEntity, errDetails)
 		return
 	}
 
-	// Fallback kalau bukan validation error
-	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	app.ServerErrorResponse(w, r, err)
 }
 
 func (app *Application) ServerErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
-	log.Printf("ERROR: %s %s | error: %v", r.Method, r.URL.Path, err) // Log detil untuk developer
+	// Structured logging: memberikan konteks tanpa mengacak-acak pesan log
+	slog.Error("internal server error",
+		"method", r.Method,
+		"path", r.URL.Path,
+		"error", err.Error(),
+	)
 
 	message := "the server encountered a problem and could not process your request"
 	app.ErrorResponse(w, r, http.StatusInternalServerError, message)
 }
 
-// notFoundResponse untuk error 404
-func (app *Application) NotFoundResponse(w http.ResponseWriter, r *http.Request) {
-	message := "the requested resource could not be found"
-	app.ErrorResponse(w, r, http.StatusNotFound, message)
-}
+// Update ErrorResponse untuk mendukung parameter headers nil secara default
+func (app *Application) ErrorResponse(w http.ResponseWriter, r *http.Request, status int, message any) {
+	env := map[string]any{"error": message}
 
-// badRequestResponse untuk error 400
-func (app *Application) BadRequestResponse(w http.ResponseWriter, r *http.Request, err error) {
-	app.ErrorResponse(w, r, http.StatusBadRequest, err.Error())
+	if err := app.WriteJSON(w, status, env, nil); err != nil {
+		slog.Error("failed to write error response", "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 }
